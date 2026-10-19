@@ -44,9 +44,18 @@ BT_NOTES_ROOT="D:\test-notes" npm run dev
 | Bold / italic / strikethrough | **Ctrl+B** / **Ctrl+I** / **Ctrl+Shift+X** |
 | Tag a note | Type `#tag` or `#parent/child` anywhere in the note |
 | Task | `- [ ] something`; click the checkbox to mark it done |
+| Due date | `📅 2026-10-21` on a task line, or **Insert → Due date** |
+| All open tasks | **Tasks** in the sidebar |
+| Link to a note | Type `[[` and pick a note, or **Insert → Link to note** |
+| Follow a link | Click it. On the line you're editing, **Ctrl+click** (**Cmd+click** on Mac) |
+| Subpage | **Insert → Subpage**: creates a page and adds its card |
+| Callout | `> [!note] Title`, or **Insert → Callout**. Other types: info, tip, important, warning, caution |
+| Toggle | `> [!toggle]- Title` (closed) or `+` (open); click the arrow to open or close it |
+| Daily note | **Daily notes** in the sidebar opens today's note; click a day in the calendar for others |
 | Pin / trash | Buttons at the top right of the editor |
 
-- **Saving and file names:** notes save automatically. Each file is named after the note's first line.
+- **Saving and file names:** notes save automatically. Each file is named after the note's first line, except daily notes, which keep their date (`Daily/2026-10-19.md`).
+- **Links when titles change:** when you change a note's title, links to it in other notes are updated.
 - **Trash:** trashed notes move to `BT Notes/.Trash/`. To restore one, move it back.
 - **Changes from other devices:** they show up within a few seconds. If file-change events don't come through, the app rescans the folder every 60 seconds.
 

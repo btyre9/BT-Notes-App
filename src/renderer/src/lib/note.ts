@@ -10,16 +10,32 @@ export interface Note {
   mtime: number
   title: string
   tags: string[]
+  /** Targets of `[[links]]` in the note, without aliases. */
+  links: string[]
+  tasks: Task[]
   pinned: boolean
-  hasOpenTasks: boolean
   snippet: string
 }
 
+export interface Task {
+  /** 0-based line number in the body. */
+  line: number
+  text: string
+  done: boolean
+  /** `YYYY-MM-DD` from a `📅 2026-10-21` marker. */
+  due?: string
+}
+
 const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/
-const OPEN_TASK = /^\s*[-*+] \[ \]/m
 /** Bear-style tags: `#tag` or `#parent/child` at the start of a word. */
 export const TAG_PATTERN = /(?<=^|\s)#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*/gu
+/** `[[Target]]` or `[[Target|shown text]]`. */
+export const WIKILINK_PATTERN = /\[\[([^[\]\n|]+)(?:\|([^[\]\n]+))?\]\]/g
+export const DUE_PATTERN = /📅\s*(\d{4}-\d{2}-\d{2})/u
+const TASK_LINE = /^\s*[-*+] \[([ xX])\] (.*)$/
 const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com\d|lpt\d)$/i
+
+export const DAILY_DIR = 'Daily/'
 
 export function splitFrontmatter(content: string): { frontmatter: string; body: string } {
   const match = content.match(FRONTMATTER)
@@ -57,10 +73,64 @@ export function tagsOf(body: string): string[] {
   return [...tags].sort()
 }
 
+export function linksOf(body: string): string[] {
+  const targets = new Set<string>()
+  for (const match of withoutCode(body).matchAll(WIKILINK_PATTERN)) targets.add(match[1].trim())
+  return [...targets]
+}
+
+export function tasksOf(body: string): Task[] {
+  const tasks: Task[] = []
+  body.split('\n').forEach((line, i) => {
+    const match = TASK_LINE.exec(line)
+    if (!match) return
+    const due = DUE_PATTERN.exec(match[2])?.[1]
+    tasks.push({ line: i, text: match[2].replace(DUE_PATTERN, '').trim(), done: match[1] !== ' ', due })
+  })
+  return tasks
+}
+
+/** Points every `[[old name]]` (any case, alias kept) at `newName`. */
+export function rewriteLinks(body: string, oldNames: string[], newName: string): string {
+  const old = new Set(oldNames.map((n) => n.toLowerCase()))
+  return body.replace(WIKILINK_PATTERN, (link, target: string, alias?: string) =>
+    old.has(target.trim().toLowerCase()) ? `[[${newName}${alias ? `|${alias}` : ''}]]` : link,
+  )
+}
+
+/** One line of Markdown as readable text: links show their label, formatting marks are dropped. */
+export function plainLine(line: string): string {
+  return line
+    .replace(WIKILINK_PATTERN, (_m, target: string, alias?: string) => (alias ?? target).trim())
+    .replace(/^\s*(?:[-*+] (?:\[[ xX]\] )?|\d+[.)] |>\s*(?:\[!\w+\][+-]?\s*)?|#{1,6} )/, '')
+    .replace(/\*\*|__|~~|`/g, '')
+    .trim()
+}
+
+/** File name without folder or `.md`. */
+export function baseName(path: string): string {
+  return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '')
+}
+
+/** Local date as `YYYY-MM-DD`. */
+export function isoDate(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+export function dailyPath(date: Date): string {
+  return `${DAILY_DIR}${isoDate(date)}.md`
+}
+
+export function dailyTitle(date: Date): string {
+  return date.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+}
+
 function snippetOf(body: string, title: string): string {
   const afterTitle = body.slice(body.indexOf(title) + title.length)
   return afterTitle
     .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/\[!\w+\][+-]?/g, ' ')
     .replace(/^\s*[-*+] \[[ xX]\] /gm, ' ')
     .replace(/[#>*_`~[\]|]+|^\s*[-+] /gm, ' ')
     .replace(/\s+/g, ' ')
@@ -78,8 +148,9 @@ export function buildNote(id: string, path: string, frontmatter: string, body: s
     mtime,
     title,
     tags: tagsOf(body),
+    links: linksOf(body),
+    tasks: tasksOf(body),
     pinned: frontmatterValue(frontmatter, 'pinned') === 'true',
-    hasOpenTasks: OPEN_TASK.test(body),
     snippet: snippetOf(body, title),
   }
 }

@@ -1,13 +1,40 @@
 import type { MenuAction, NoteFile, PendingSave, VaultEvent } from '../../../shared/types'
-import { buildNote, buildTagTree, contentOf, fileNameFor, parseNote, setFrontmatterValue, type Note } from './note'
+import {
+  baseName,
+  buildNote,
+  buildTagTree,
+  contentOf,
+  DAILY_DIR,
+  dailyPath,
+  dailyTitle,
+  fileNameFor,
+  parseNote,
+  plainLine,
+  rewriteLinks,
+  setFrontmatterValue,
+  type Note,
+  type Task,
+} from './note'
 import { createIndex, remove, upsert } from './search'
 
 export type Filter =
   | { kind: 'all' }
+  | { kind: 'daily' }
   | { kind: 'pinned' }
   | { kind: 'untagged' }
-  | { kind: 'todo' }
+  | { kind: 'tasks' }
   | { kind: 'tag'; tag: string }
+
+export interface Backlink {
+  note: Note
+  /** The line that contains the link. */
+  context: string
+}
+
+export interface TaskItem {
+  note: Note
+  task: Task
+}
 
 const SAVE_DELAY_MS = 600
 const NOTES_DIR = 'Notes/'
@@ -18,12 +45,14 @@ function matches(note: Note, filter: Filter): boolean {
   switch (filter.kind) {
     case 'all':
       return true
+    case 'daily':
+      return note.path.startsWith(DAILY_DIR)
     case 'pinned':
       return note.pinned
     case 'untagged':
       return note.tags.length === 0
-    case 'todo':
-      return note.hasOpenTasks
+    case 'tasks':
+      return note.tasks.some((t) => !t.done)
     case 'tag':
       return note.tags.some((t) => t === filter.tag || t.startsWith(`${filter.tag}/`))
   }
@@ -40,6 +69,11 @@ function localTimestamp(date = new Date()): string {
 
 const key = (path: string) => path.toLowerCase()
 
+/** The name other notes use to link to this one: its title, or its file name while it has none. */
+function linkName(note: Note): string {
+  return note.title || baseName(note.path)
+}
+
 class NotesStore {
   ready = $state(false)
   root = $state<string | null>(null)
@@ -49,23 +83,27 @@ class NotesStore {
   error = $state<string | null>(null)
   /** Bumped when the search box should take focus. */
   searchFocus = $state(0)
-  /** Id of a just-created note, so the editor puts the cursor in its title. */
-  newNoteId = $state<string | null>(null)
+  /** Asks the editor to focus a note with the cursor at the end of a body line (0-based). */
+  focus = $state<{ id: string; line: number } | null>(null)
 
   // Notes live in a plain Map for speed; `revision` is the reactive signal that something changed.
   private notes = new Map<string, Note>()
   private idByPath = new Map<string, string>()
+  /** Each note's title as of its last save, so links can be updated when the title changes. */
+  private savedTitles = new Map<string, string>()
   private index = createIndex()
   private saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
   private revision = $state(0)
+  /** Bumped when a note other than the open one changes, so the editor redraws links to it. */
+  otherNotesVersion = $state(0)
 
   visible = $derived.by(() => {
     void this.revision
     const query = this.query.trim()
-    const list = query
-      ? this.index.search(query).flatMap((r) => this.notes.get(r.id) ?? [])
-      : [...this.notes.values()].sort(byPinnedThenRecent)
-    return list.filter((n) => matches(n, this.filter))
+    if (query) return this.index.search(query).flatMap((r) => this.notes.get(r.id) ?? []).filter((n) => matches(n, this.filter))
+    const list = [...this.notes.values()].filter((n) => matches(n, this.filter))
+    // Daily notes read best newest-date first; everything else by pinned, then last edited.
+    return this.filter.kind === 'daily' ? list.sort((a, b) => b.path.localeCompare(a.path)) : list.sort(byPinnedThenRecent)
   })
 
   selected = $derived.by(() => {
@@ -76,6 +114,47 @@ class NotesStore {
   tagTree = $derived.by(() => {
     void this.revision
     return buildTagTree(this.notes.values())
+  })
+
+  /** Lower-cased link name → note. Titles win over file names when two notes would claim the same name. */
+  private linkIndex = $derived.by(() => {
+    void this.revision
+    const index = new Map<string, Note>()
+    const notes = [...this.notes.values()].sort((a, b) => b.mtime - a.mtime)
+    for (const note of notes) if (note.title && !index.has(note.title.toLowerCase())) index.set(note.title.toLowerCase(), note)
+    for (const note of notes) {
+      const name = baseName(note.path).toLowerCase()
+      if (!index.has(name)) index.set(name, note)
+    }
+    return index
+  })
+
+  backlinks = $derived.by((): Backlink[] => {
+    const target = this.selected
+    if (!target) return []
+    const result: Backlink[] = []
+    for (const note of this.notes.values()) {
+      if (note.id === target.id) continue
+      const linked = note.links.filter((l) => this.resolve(l)?.id === target.id).map((l) => `[[${l.toLowerCase()}`)
+      if (!linked.length) continue
+      const line = note.body.split('\n').find((l) => linked.some((link) => l.toLowerCase().includes(link)))
+      result.push({ note, context: plainLine(line ?? '') })
+    }
+    return result.sort((a, b) => b.note.mtime - a.note.mtime)
+  })
+
+  /** Every open task in every note. */
+  openTasks = $derived.by((): TaskItem[] => {
+    void this.revision
+    return [...this.notes.values()].flatMap((note) => note.tasks.filter((t) => !t.done).map((task) => ({ note, task })))
+  })
+
+  /** `YYYY-MM-DD` of every day that has a daily note. */
+  dailyDates = $derived.by(() => {
+    void this.revision
+    const dates = new Set<string>()
+    for (const note of this.notes.values()) if (note.path.startsWith(DAILY_DIR)) dates.add(baseName(note.path))
+    return dates
   })
 
   async init(): Promise<void> {
@@ -92,13 +171,16 @@ class NotesStore {
     const files = await vault.loadAll()
     this.notes.clear()
     this.idByPath.clear()
+    this.savedTitles.clear()
     this.index = createIndex()
     for (const file of files) this.addFile(file)
     this.selectedId = this.visible[0]?.id ?? null
   }
 
-  private addFile(file: NoteFile): void {
-    this.put(parseNote(crypto.randomUUID(), file))
+  private addFile(file: NoteFile, id: string = crypto.randomUUID()): void {
+    const note = parseNote(id, file)
+    this.savedTitles.set(id, note.title)
+    this.put(note)
   }
 
   private put(note: Note): void {
@@ -108,6 +190,7 @@ class NotesStore {
     this.idByPath.set(key(note.path), note.id)
     upsert(this.index, note)
     this.revision++
+    if (note.id !== this.selectedId) this.otherNotesVersion++
   }
 
   private drop(id: string): void {
@@ -115,8 +198,10 @@ class NotesStore {
     if (!note) return
     this.notes.delete(id)
     this.idByPath.delete(key(note.path))
+    this.savedTitles.delete(id)
     remove(this.index, id)
     this.revision++
+    this.otherNotesVersion++
   }
 
   private showError = (err: Error) => {
@@ -134,9 +219,38 @@ class NotesStore {
       .catch(this.showError)
   }
 
+  /** The note a `[[link]]` points to: matched by title, then by file name, ignoring case. */
+  resolve(target: string): Note | null {
+    return this.linkIndex.get(target.trim().toLowerCase()) ?? null
+  }
+
+  /** All link names, for autocomplete. */
+  linkNames(): string[] {
+    return [...this.notes.values()].map(linkName)
+  }
+
   select(id: string | null): void {
     if (this.selectedId && this.selectedId !== id && this.saveTimers.has(this.selectedId)) this.flush(this.selectedId)
     this.selectedId = id
+  }
+
+  /** Selects a note, switching to all notes if the current view doesn't include it. */
+  open(id: string, focusLine?: number): void {
+    const note = this.notes.get(id)
+    if (!note) return
+    if (!matches(note, this.filter) || this.query) {
+      this.filter = { kind: 'all' }
+      this.query = ''
+    }
+    this.select(id)
+    if (focusLine !== undefined) this.focus = { id, line: focusLine }
+  }
+
+  /** Follows a `[[link]]`, creating the note if nothing has that name yet. */
+  openLink(target: string): void {
+    const note = this.resolve(target)
+    if (note) this.open(note.id)
+    else this.createNote({ title: target.trim() })
   }
 
   setFilter(filter: Filter): void {
@@ -160,19 +274,56 @@ class NotesStore {
     this.scheduleSave(id)
   }
 
-  createNote(): void {
-    if (!this.root) return
+  toggleTask(id: string, line: number): void {
+    const note = this.notes.get(id)
+    if (!note) return
+    const lines = note.body.split('\n')
+    lines[line] = lines[line].replace(/\[([ xX])\]/, (_m, mark: string) => (mark === ' ' ? '[x]' : '[ ]'))
+    this.edit(id, lines.join('\n'))
+  }
+
+  /**
+   * Creates a note in Notes/. With a title (from a link), the note starts with it; otherwise it
+   * starts empty, tagged with the current tag. Selects it unless `select` is false.
+   */
+  createNote({ title, select = true }: { title?: string; select?: boolean } = {}): Note | null {
+    if (!this.root) return null
     const id = crypto.randomUUID()
-    const tagLine = this.filter.kind === 'tag' ? `\n\n#${this.filter.tag}` : ''
+    const tagLine = this.filter.kind === 'tag' && !title ? `\n\n#${this.filter.tag}` : ''
+    const body = title ? `# ${title}\n\n` : `# ${tagLine}`
     const frontmatter = setFrontmatterValue('', 'created', localTimestamp())
-    const draft = buildNote(id, '', frontmatter, `# ${tagLine}`, Date.now())
+    const draft = buildNote(id, '', frontmatter, body, Date.now())
     const note = { ...draft, path: this.pathFor(draft, NOTES_DIR) }
-    this.query = ''
-    if (this.filter.kind !== 'tag') this.filter = { kind: 'all' }
+    this.savedTitles.set(id, note.title)
     this.put(note)
-    this.select(id)
-    this.newNoteId = id
     this.save(id, { path: note.path, content: contentOf(note) })
+    if (select) this.open(id, title ? 2 : 0)
+    return note
+  }
+
+  /** Creates an empty note to be linked from the current one; returns its link name. */
+  createSubpage(): { id: string; linkName: string } | null {
+    const note = this.createNote({ select: false })
+    return note && { id: note.id, linkName: linkName(note) }
+  }
+
+  /** Opens the daily note for a date, creating it if needed. */
+  openDaily(date = new Date()): void {
+    if (!this.root) return
+    const path = dailyPath(date)
+    this.filter = { kind: 'daily' }
+    this.query = ''
+    const existing = this.idByPath.get(key(path))
+    if (existing) return this.select(existing)
+
+    const id = crypto.randomUUID()
+    const frontmatter = setFrontmatterValue('', 'created', localTimestamp())
+    const note = buildNote(id, path, frontmatter, `# ${dailyTitle(date)}\n\n`, Date.now())
+    this.savedTitles.set(id, note.title)
+    this.put(note)
+    this.save(id, { path, content: contentOf(note) })
+    this.select(id)
+    this.focus = { id, line: 2 }
   }
 
   trashNote(id: string): void {
@@ -203,20 +354,42 @@ class NotesStore {
     )
   }
 
-  /** Cancels a note's save timer and works out its save: a rename if the title changed, then a write. */
+  /**
+   * Cancels a note's save timer and works out its save: a rename if the title changed (daily
+   * notes keep their date file names), then a write. Links to the old title are updated too.
+   */
   private takePendingSave(id: string): PendingSave | null {
     clearTimeout(this.saveTimers.get(id))
     this.saveTimers.delete(id)
     const note = this.notes.get(id)
     if (!note) return null
     const dir = note.path.slice(0, note.path.lastIndexOf('/') + 1)
-    const path = this.pathFor(note, dir)
+    const path = dir === DAILY_DIR ? note.path : this.pathFor(note, dir)
+    const oldNames = [this.savedTitles.get(id) ?? note.title, baseName(note.path)]
     const save: PendingSave = { path, content: contentOf(note) }
     if (path !== note.path) {
       save.renameFrom = note.path
       this.put({ ...note, path })
     }
+    this.savedTitles.set(id, note.title)
+    this.updateLinks(id, oldNames, linkName(this.notes.get(id)!))
     return save
+  }
+
+  /** Rewrites `[[old name]]` links in other notes after a note's title changed. */
+  private updateLinks(id: string, oldNames: string[], newName: string): void {
+    const names = [...new Set(oldNames.filter((n) => n && n.toLowerCase() !== newName.toLowerCase()))]
+      // A name another note still answers to is left alone; those links point there now.
+      .filter((n) => this.resolve(n) === null || this.resolve(n)?.id === id)
+    if (!names.length) return
+    const lower = new Set(names.map((n) => n.toLowerCase()))
+    for (const other of this.notes.values()) {
+      if (other.id === id || !other.links.some((l) => lower.has(l.toLowerCase()))) continue
+      const body = rewriteLinks(other.body, names, newName)
+      if (body === other.body) continue
+      this.put(buildNote(other.id, other.path, other.frontmatter, body, Date.now()))
+      this.scheduleSave(other.id)
+    }
   }
 
   private flush(id: string): void {
@@ -225,7 +398,12 @@ class NotesStore {
   }
 
   private saveAllNow(): void {
-    const saves = [...this.saveTimers.keys()].flatMap((id) => this.takePendingSave(id) ?? [])
+    const saves: PendingSave[] = []
+    // Saving one note can schedule saves of others (link updates), so loop until none are left.
+    while (this.saveTimers.size) {
+      const save = this.takePendingSave(this.saveTimers.keys().next().value!)
+      if (save) saves.push(save)
+    }
     if (saves.length) app.saveNow(saves)
   }
 
@@ -253,7 +431,7 @@ class NotesStore {
     const note = this.notes.get(id)!
     // Unsaved local edits win; they'll be written over the incoming version.
     if (this.saveTimers.has(id) || contentOf(note) === event.file.content) return
-    this.put(parseNote(id, { ...event.file, path: note.path }))
+    this.addFile({ ...event.file, path: note.path }, id)
   }
 
   private handleMenu(action: MenuAction): void {

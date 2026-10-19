@@ -267,19 +267,102 @@ button {
 }
 .toolbar {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 2px;
   padding: 10px 14px 0;
 }
+.spacer {
+  flex: 1;
+}
+.text-button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px 0 6px;
+  border-radius: 6px;
+  color: var(--text-muted);
+}
+.text-button:hover,
+.text-button[aria-expanded='true'] {
+  background: var(--code-bg);
+  color: var(--text);
+}
+.insert {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  z-index: 10;
+  top: 32px;
+  left: 0;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--list-border);
+  border-radius: 8px;
+  background: var(--editor-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.menu button {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 5px;
+}
+.menu button:hover {
+  background: var(--accent-soft);
+}
+/* The editor grows with its text and this pane scrolls, so backlinks sit right after the note. */
 .editor-scroll {
   flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
 .editor-scroll.hidden {
   display: none;
 }
 .editor-scroll .cm-editor {
-  height: 100%;
+  min-height: 60%;
+}
+.editor-scroll .cm-scroller {
+  overflow: visible;
+}
+/* Without this, wide content such as a card's preview text stretches the editor past the pane. */
+.editor-scroll .cm-content {
+  min-width: 0;
+}
+.backlinks {
+  max-width: 760px;
+  margin: 24px auto 0;
+  padding: 16px 48px 40vh;
+  border-top: 1px solid var(--list-border);
+}
+.backlinks h2 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.backlink {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.backlink:hover {
+  background: var(--code-bg);
+}
+.backlink-title {
+  font-weight: 600;
+}
+.backlink-context {
+  color: var(--text-muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .cm-editor.cm-focused {
   outline: none;
@@ -292,7 +375,7 @@ button {
 .cm-editor .cm-content {
   max-width: 760px;
   margin: 0 auto;
-  padding: 16px 48px 50vh;
+  padding: 16px 48px 24px;
   caret-color: var(--accent);
 }
 .cm-editor .cm-cursor {
@@ -340,6 +423,266 @@ button {
   border-radius: 4px;
   padding: 1px 4px;
   font-size: 0.9em;
+}
+
+/* Links between notes */
+.cm-wikilink {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-soft);
+  text-underline-offset: 3px;
+}
+.cm-wikilink-missing {
+  color: var(--text-muted);
+  text-decoration-style: dashed;
+  text-decoration-color: var(--text-faint);
+}
+.cm-card {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  margin: 4px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--list-border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--list-bg);
+  cursor: pointer;
+  vertical-align: top;
+}
+.cm-card:hover {
+  border-color: var(--accent);
+}
+.cm-card-title {
+  font-weight: 600;
+}
+/* Clamped to one line rather than nowrap, which would force the whole editor wider than the pane. */
+.cm-card-snippet {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.85em;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.cm-card-missing {
+  border-style: dashed;
+  border-left-style: solid;
+  border-left-color: var(--text-faint);
+}
+
+/* Callouts and toggles: > [!note] … */
+.cm-line.cm-callout {
+  --callout: var(--text-muted);
+  border-left: 3px solid var(--callout);
+  background: color-mix(in srgb, var(--callout) 9%, transparent);
+  padding-left: 14px;
+}
+.cm-line.cm-callout-note,
+.cm-line.cm-callout-info {
+  --callout: #3b82c4;
+}
+.cm-line.cm-callout-tip {
+  --callout: #2e9d64;
+}
+.cm-line.cm-callout-important {
+  --callout: #8a5cc7;
+}
+.cm-line.cm-callout-warning {
+  --callout: #d08a1a;
+}
+.cm-line.cm-callout-caution {
+  --callout: var(--accent);
+}
+.cm-line.cm-callout-toggle {
+  border-left-color: transparent;
+  background: none;
+}
+.cm-line.cm-callout-first {
+  font-weight: 600;
+}
+.cm-callout-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  color: var(--callout);
+  font-weight: 700;
+}
+.cm-callout-arrow {
+  display: inline-block;
+  width: 1em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.cm-callout-arrow.open {
+  transform: rotate(90deg);
+}
+
+/* Due dates on tasks */
+.cm-due {
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+.cm-due.cm-overdue {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Autocomplete list for [[links]] */
+.cm-tooltip.cm-tooltip-autocomplete {
+  border: 1px solid var(--list-border);
+  border-radius: 8px;
+  background: var(--editor-bg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  font-family: var(--font-ui);
+}
+.cm-tooltip-autocomplete > ul > li {
+  padding: 4px 10px !important;
+}
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--accent) !important;
+  color: #fff !important;
+}
+
+/* Calendar in the sidebar */
+.calendar {
+  margin: 0 14px 14px;
+  font-size: 11px;
+}
+.calendar-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.calendar-title {
+  flex: 1;
+  text-align: center;
+  font-weight: 600;
+  color: var(--sidebar-text);
+}
+.calendar-nav {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--sidebar-muted);
+}
+.calendar-nav:hover,
+.day:hover {
+  background: var(--sidebar-hover);
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  text-align: center;
+}
+.weekday {
+  color: var(--sidebar-muted);
+  padding: 2px 0;
+}
+.day {
+  position: relative;
+  height: 22px;
+  border-radius: 4px;
+  text-align: center;
+  color: var(--sidebar-text);
+}
+.day.other-month {
+  color: var(--sidebar-muted);
+  opacity: 0.6;
+}
+.day.today {
+  color: var(--accent);
+  font-weight: 700;
+}
+.day.open {
+  background: var(--sidebar-active);
+  color: #fff;
+}
+.day.has-note::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 1px;
+  width: 3px;
+  height: 3px;
+  margin-left: -1.5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* Tasks view */
+.list-title {
+  flex: 1;
+  margin: 0;
+  font-size: 15px;
+  line-height: 28px;
+}
+.task-group {
+  margin: 14px 18px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.task-group.overdue {
+  color: var(--accent);
+}
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 8px 14px 8px 18px;
+  border-left: 3px solid transparent;
+}
+.task-row:hover {
+  background: var(--list-selected);
+}
+.task-row.selected {
+  border-left-color: var(--accent);
+  background: var(--list-selected);
+}
+.task-row .cm-task {
+  margin-top: 3px;
+}
+.task-main {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.task-text {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.task-note {
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.task-due {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding-top: 2px;
+}
+.task-due.overdue {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* Welcome and errors */

@@ -21,14 +21,16 @@ A Markdown notes app with Bear's look and a few of Craft's features. It runs on 
 
 ```
 My Drive/BT Notes/
-  Notes/            all notes; a note with subpages gets a matching subfolder
+  Notes/            all notes, subpages included
     Project X.md
-    Project X/
-      Kickoff.md
+    Kickoff.md      a subpage of Project X: linked from it, same folder
   Daily/            one note per day: 2026-10-19.md
   Inbox/            new imports from Apple Notes, waiting to be filed
   Attachments/      images and files linked from notes
+  .Trash/           trashed notes
 ```
+
+Subpages are ordinary notes, tied to their parent by a link rather than a subfolder. A subfolder would have to be renamed, and every link into it rewritten, whenever the parent's title changed.
 
 ## Note format
 
@@ -42,20 +44,24 @@ pinned: false
 Notes go here. Tags are inline: #work #work/meetings
 
 > [!note] Callout
-> Shown as a highlighted block.
+> Shown as a highlighted block. Types: note, info, tip, important, warning, caution.
 
-<details><summary>Toggle</summary>
-Hidden until expanded.
-</details>
+> [!toggle]- Toggle
+> Hidden until expanded. `-` means closed, `+` means open.
 
 - [ ] Send the draft 📅 2026-10-21
 - [x] Book the room
 
-See also [[Kickoff]]. Subpage: [[Project X/Kickoff]]
+See also [[Kickoff]], or with different text: [[Kickoff|the kickoff]].
+
+[[Kickoff]]
 ```
 
-- **Title:** the first `# heading`. The filename follows the title.
+- **Title:** the first `# heading`. The file name follows the title, except daily notes, which keep their date.
 - **Tags:** nested with `/`, as in Bear. They come from the note text; no separate database.
+- **Links:** `[[Name]]` finds the note by title, then by file name. When a note's title changes, links to it are updated.
+- **Subpage cards:** a link alone on its line shows as a card.
+- **Toggles:** callouts that collapse. This is Obsidian's syntax, so the files stay portable.
 - **Search index, backlinks and task list:** built on each device from the files and never synced, so they can't cause conflicts.
 
 ## Features
@@ -73,7 +79,7 @@ See also [[Kickoff]]. Subpage: [[Project X/Kickoff]]
 - `[[Links]]` between notes, with a backlinks panel.
 - Subpages shown as cards inside the parent note.
 - Callouts and toggles.
-- Tasks with due dates, plus a "Due" view across all notes.
+- Tasks with due dates, plus a Tasks view across all notes (Overdue, Today, Upcoming, No date).
 
 ## Phases
 
@@ -96,7 +102,7 @@ Each phase ends with a check that has to pass before the next one starts.
    - Tag them, file them, skip duplicates.
    - The Mac helper runs every few minutes on its own.
    - *Check:* 10 notes captured on the phone are in the app within 10 minutes, and gone from Apple Notes.
-4. **Craft features:** daily notes, backlinks, subpage cards, callouts, toggles, tasks.
+4. **Craft features.** Built and tested on Windows, 2026-10-19: daily notes with a calendar, `[[links]]` with backlinks and autocomplete, subpage cards, callouts, toggles, tasks with due dates and a Tasks view.
 5. **iPhone app (Capacitor).**
    - Reading first, then editing.
    - Until it's ready, the Google Drive iPhone app can open the `.md` files to read them.

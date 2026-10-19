@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { buildTagTree, fileNameFor, parseNote, setFrontmatterValue, splitFrontmatter, tagsOf, titleOf } from './note'
+import {
+  buildTagTree,
+  fileNameFor,
+  linksOf,
+  parseNote,
+  plainLine,
+  rewriteLinks,
+  setFrontmatterValue,
+  splitFrontmatter,
+  tagsOf,
+  tasksOf,
+  titleOf,
+} from './note'
 import { createIndex, upsert } from './search'
 
 describe('titleOf', () => {
@@ -14,6 +26,38 @@ describe('tagsOf', () => {
   it('finds nested tags and ignores headings, code and mid-word hashes', () => {
     const body = '# Title\n#work/meetings and #Ideas\nissue#12\n`#notatag`\n```\n#alsonot\n```\n## Heading'
     expect(tagsOf(body)).toEqual(['ideas', 'work/meetings'])
+  })
+})
+
+describe('links', () => {
+  it('finds link targets, drops aliases and ignores code', () => {
+    const body = 'See [[Project X]] and [[Kickoff|the kickoff]].\n`[[not a link]]`\n[[ Project X ]]'
+    expect(linksOf(body)).toEqual(['Project X', 'Kickoff'])
+  })
+
+  it('rewrites links to a renamed note, keeping aliases and leaving others alone', () => {
+    const body = 'A [[untitled 2]] B [[Untitled 2|draft]] C [[Other]]'
+    expect(rewriteLinks(body, ['Untitled 2'], 'Kickoff')).toBe('A [[Kickoff]] B [[Kickoff|draft]] C [[Other]]')
+  })
+})
+
+describe('plainLine', () => {
+  it('shows link labels and drops Markdown marks', () => {
+    expect(plainLine('- [ ] Review **draft** with `HV-team` in [[Taycan plan|the plan]]')).toBe(
+      'Review draft with HV-team in the plan',
+    )
+    expect(plainLine('> [!note]- See [[Kickoff]]')).toBe('See Kickoff')
+  })
+})
+
+describe('tasksOf', () => {
+  it('reads open and done tasks with their due dates and line numbers', () => {
+    const body = '# Plan\n- [ ] Draft storyboard 📅 2026-10-21\n- [x] Collect photos\nnot a task\n  * [ ] Nested one'
+    expect(tasksOf(body)).toEqual([
+      { line: 1, text: 'Draft storyboard', done: false, due: '2026-10-21' },
+      { line: 2, text: 'Collect photos', done: true, due: undefined },
+      { line: 4, text: 'Nested one', done: false, due: undefined },
+    ])
   })
 })
 

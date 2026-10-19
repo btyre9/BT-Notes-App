@@ -1,9 +1,12 @@
+import { autocompletion, completionKeymap, type CompletionSource } from '@codemirror/autocomplete'
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { Annotation, EditorSelection, type Extension } from '@codemirror/state'
 import { drawSelection, dropCursor, EditorView, keymap, type Command } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
+import { calloutFolding } from './callouts'
+import type { EditorContext } from './context'
 import { livePreview, tagHighlight } from './livePreview'
 
 /** Marks changes that came from disk, so they aren't saved straight back. */
@@ -51,7 +54,21 @@ function toggleWrap(marker: string): Command {
   }
 }
 
-export function editorExtensions(onChange: (doc: string) => void): Extension[] {
+/** After `[[`, suggests notes to link to; picking one completes the link. */
+function linkCompletions(ctx: EditorContext): CompletionSource {
+  return (context) => {
+    const typed = context.matchBefore(/\[\[[^[\]\n|]*/)
+    if (!typed) return null
+    const closed = context.state.sliceDoc(context.pos, context.pos + 2) === ']]'
+    return {
+      from: typed.from + 2,
+      options: ctx.linkNames().map((name) => ({ label: name, apply: closed ? name : `${name}]]` })),
+      validFor: /^[^[\]\n|]*$/,
+    }
+  }
+}
+
+export function editorExtensions(ctx: EditorContext, onChange: (doc: string) => void): Extension[] {
   return [
     history(),
     drawSelection(),
@@ -59,12 +76,15 @@ export function editorExtensions(onChange: (doc: string) => void): Extension[] {
     EditorView.lineWrapping,
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(bearHighlight),
-    livePreview,
+    livePreview(ctx),
+    calloutFolding,
     tagHighlight,
+    autocompletion({ override: [linkCompletions(ctx)], icons: false }),
     keymap.of([
       { key: 'Mod-b', run: toggleWrap('**') },
       { key: 'Mod-i', run: toggleWrap('*') },
       { key: 'Mod-Shift-x', run: toggleWrap('~~') },
+      ...completionKeymap,
       indentWithTab,
       ...defaultKeymap,
       ...historyKeymap,

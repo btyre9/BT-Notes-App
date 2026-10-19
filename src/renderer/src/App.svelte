@@ -2,6 +2,7 @@
   import Editor from './components/Editor.svelte'
   import NoteList from './components/NoteList.svelte'
   import Sidebar from './components/Sidebar.svelte'
+  import TaskList from './components/TaskList.svelte'
   import { store } from './lib/store.svelte'
 
   store.init().catch((err: Error) => (store.error = err.message))
@@ -16,7 +17,11 @@
 {:else if store.ready}
   <div class="app">
     <Sidebar />
-    <NoteList />
+    {#if store.filter.kind === 'tasks'}
+      <TaskList />
+    {:else}
+      <NoteList />
+    {/if}
     <Editor />
   </div>
 {/if}
