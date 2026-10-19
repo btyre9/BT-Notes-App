@@ -2,7 +2,23 @@
 
 Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files in a folder that Google Drive for desktop syncs. See [PLAN.md](PLAN.md) for the design and roadmap.
 
-## Run it
+## Install on Windows
+
+Build the installer:
+
+```bash
+npm install
+npm run dist:win
+```
+
+Run `dist\BT Notes Setup 0.1.0.exe`.
+- **No admin rights needed:** it installs for your user only, into `%LOCALAPPDATA%\Programs\BT Notes`, and adds Start menu and desktop shortcuts.
+- **Windows warning:** the installer isn't code-signed, so the first time you run it Windows SmartScreen may say "Windows protected your PC". Choose **More info → Run anyway**.
+- **Uninstall:** use **Settings → Apps**.
+
+**If the build fails with `EPERM: operation not permitted, rename …electron-builder\Cache\…`:** security software is scanning the build tools electron-builder just unpacked, and is holding the folder open while it does. Wait a few seconds and run `npm run dist:win` again.
+
+## Run from source
 
 You need Node.js 22 or newer.
 
