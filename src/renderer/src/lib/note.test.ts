@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildTagTree,
   fileNameFor,
+  isLinkable,
   linksOf,
   parseNote,
   plainLine,
@@ -39,6 +40,18 @@ describe('links', () => {
     const body = 'A [[untitled 2]] B [[Untitled 2|draft]] C [[Other]]'
     expect(rewriteLinks(body, ['Untitled 2'], 'Kickoff')).toBe('A [[Kickoff]] B [[Kickoff|draft]] C [[Other]]')
   })
+
+  it('leaves link examples inside code alone', () => {
+    const body = 'Real [[Old]], example `[[Old]]`\n```\n[[Old]]\n```'
+    expect(rewriteLinks(body, ['Old'], 'New')).toBe('Real [[New]], example `[[Old]]`\n```\n[[Old]]\n```')
+  })
+
+  it('knows which names fit inside a link', () => {
+    expect(isLinkable('Kickoff meeting')).toBe(true)
+    expect(isLinkable('Plan | Q3')).toBe(false)
+    expect(isLinkable('[Draft] Plan')).toBe(false)
+    expect(isLinkable('')).toBe(false)
+  })
 })
 
 describe('plainLine', () => {
@@ -57,6 +70,14 @@ describe('tasksOf', () => {
       { line: 1, text: 'Draft storyboard', done: false, due: '2026-10-21' },
       { line: 2, text: 'Collect photos', done: true, due: undefined },
       { line: 4, text: 'Nested one', done: false, due: undefined },
+    ])
+  })
+
+  it('handles Windows line endings and tasks inside callouts', () => {
+    const body = '# Plan\r\n- [ ] Call Bob\r\n> [!toggle]- More\r\n> - [ ] Hidden task 📅 2026-10-21\r\n'
+    expect(tasksOf(body)).toEqual([
+      { line: 1, text: 'Call Bob', done: false, due: undefined },
+      { line: 3, text: 'Hidden task', done: false, due: '2026-10-21' },
     ])
   })
 })

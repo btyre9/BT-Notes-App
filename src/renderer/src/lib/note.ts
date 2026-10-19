@@ -32,7 +32,10 @@ export const TAG_PATTERN = /(?<=^|\s)#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*/gu
 /** `[[Target]]` or `[[Target|shown text]]`. */
 export const WIKILINK_PATTERN = /\[\[([^[\]\n|]+)(?:\|([^[\]\n]+))?\]\]/g
 export const DUE_PATTERN = /📅\s*(\d{4}-\d{2}-\d{2})/u
-const TASK_LINE = /^\s*[-*+] \[([ xX])\] (.*)$/
+/** A task line, also inside a quote or callout (`> - [ ] …`). */
+export const TASK_LINE = /^\s*(?:>\s*)*[-*+] \[([ xX])\] (.*)$/
+/** Characters that would break the `[[name]]` syntax if they were part of the name. */
+const UNLINKABLE = /[[\]|]/
 const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com\d|lpt\d)$/i
 
 export const DAILY_DIR = 'Daily/'
@@ -81,7 +84,8 @@ export function linksOf(body: string): string[] {
 
 export function tasksOf(body: string): Task[] {
   const tasks: Task[] = []
-  body.split('\n').forEach((line, i) => {
+  // Files written on Windows can end lines with \r\n.
+  body.split(/\r?\n/).forEach((line, i) => {
     const match = TASK_LINE.exec(line)
     if (!match) return
     const due = DUE_PATTERN.exec(match[2])?.[1]
@@ -90,11 +94,18 @@ export function tasksOf(body: string): Task[] {
   return tasks
 }
 
-/** Points every `[[old name]]` (any case, alias kept) at `newName`. */
+/** True if `name` can sit inside `[[…]]` without breaking the link syntax. */
+export function isLinkable(name: string): boolean {
+  return name !== '' && !UNLINKABLE.test(name)
+}
+
+const CODE_OR_LINK = new RegExp(`(\`\`\`[\\s\\S]*?\`\`\`|\`[^\`\\n]*\`)|${WIKILINK_PATTERN.source}`, 'g')
+
+/** Points every `[[old name]]` (any case, alias kept) at `newName`, leaving code untouched. */
 export function rewriteLinks(body: string, oldNames: string[], newName: string): string {
   const old = new Set(oldNames.map((n) => n.toLowerCase()))
-  return body.replace(WIKILINK_PATTERN, (link, target: string, alias?: string) =>
-    old.has(target.trim().toLowerCase()) ? `[[${newName}${alias ? `|${alias}` : ''}]]` : link,
+  return body.replace(CODE_OR_LINK, (match, code?: string, target?: string, alias?: string) =>
+    !code && target && old.has(target.trim().toLowerCase()) ? `[[${newName}${alias ? `|${alias}` : ''}]]` : match,
   )
 }
 

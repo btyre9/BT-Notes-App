@@ -8,6 +8,7 @@ import {
   dailyPath,
   dailyTitle,
   fileNameFor,
+  isLinkable,
   parseNote,
   plainLine,
   rewriteLinks,
@@ -69,9 +70,9 @@ function localTimestamp(date = new Date()): string {
 
 const key = (path: string) => path.toLowerCase()
 
-/** The name other notes use to link to this one: its title, or its file name while it has none. */
-function linkName(note: Note): string {
-  return note.title || baseName(note.path)
+/** The names a note answers to in a `[[link]]`: its title and its file name, lower-cased. */
+function namesOf(note: Note): Set<string> {
+  return new Set([note.title.toLowerCase(), baseName(note.path).toLowerCase()].filter(Boolean))
 }
 
 class NotesStore {
@@ -128,6 +129,24 @@ class NotesStore {
     }
     return index
   })
+
+  /** Lower-cased name → how many notes answer to it. */
+  private nameCounts = $derived.by(() => {
+    void this.revision
+    const counts = new Map<string, number>()
+    for (const note of this.notes.values()) for (const name of namesOf(note)) counts.set(name, (counts.get(name) ?? 0) + 1)
+    return counts
+  })
+
+  /**
+   * The name to write in links to this note: its title when that's unambiguous and fits inside
+   * `[[…]]`, otherwise its file name, which is unique in its folder and never contains `[`, `]` or `|`.
+   */
+  linkName(note: Note): string {
+    const { title } = note
+    if (isLinkable(title) && this.nameCounts.get(title.toLowerCase()) === 1) return title
+    return baseName(note.path)
+  }
 
   backlinks = $derived.by((): Backlink[] => {
     const target = this.selected
@@ -226,7 +245,7 @@ class NotesStore {
 
   /** All link names, for autocomplete. */
   linkNames(): string[] {
-    return [...this.notes.values()].map(linkName)
+    return [...this.notes.values()].map((note) => this.linkName(note))
   }
 
   select(id: string | null): void {
@@ -304,7 +323,7 @@ class NotesStore {
   /** Creates an empty note to be linked from the current one; returns its link name. */
   createSubpage(): { id: string; linkName: string } | null {
     const note = this.createNote({ select: false })
-    return note && { id: note.id, linkName: linkName(note) }
+    return note && { id: note.id, linkName: this.linkName(note) }
   }
 
   /** Opens the daily note for a date, creating it if needed. */
@@ -365,14 +384,18 @@ class NotesStore {
     if (!note) return null
     const dir = note.path.slice(0, note.path.lastIndexOf('/') + 1)
     const path = dir === DAILY_DIR ? note.path : this.pathFor(note, dir)
-    const oldNames = [this.savedTitles.get(id) ?? note.title, baseName(note.path)]
     const save: PendingSave = { path, content: contentOf(note) }
+    // Names that stopped pointing here: the previous title if it changed, the old file name if renamed.
+    const oldNames: string[] = []
+    const savedTitle = this.savedTitles.get(id) ?? note.title
+    if (savedTitle !== note.title) oldNames.push(savedTitle)
     if (path !== note.path) {
+      oldNames.push(baseName(note.path))
       save.renameFrom = note.path
       this.put({ ...note, path })
     }
     this.savedTitles.set(id, note.title)
-    this.updateLinks(id, oldNames, linkName(this.notes.get(id)!))
+    if (oldNames.length) this.updateLinks(id, oldNames, this.linkName(this.notes.get(id)!))
     return save
   }
 

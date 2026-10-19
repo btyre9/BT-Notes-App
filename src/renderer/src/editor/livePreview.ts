@@ -10,7 +10,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view'
-import { DUE_PATTERN, isoDate, TAG_PATTERN, WIKILINK_PATTERN } from '../lib/note'
+import { DUE_PATTERN, isoDate, TAG_PATTERN, TASK_LINE, WIKILINK_PATTERN } from '../lib/note'
 import { CALLOUT_START } from './callouts'
 import type { EditorContext } from './context'
 
@@ -123,7 +123,12 @@ class CalloutLabelWidget extends WidgetType {
       arrow.addEventListener('mousedown', (event) => {
         event.preventDefault()
         const pos = view.posAtDOM(label) + this.signOffset
-        view.dispatch({ changes: { from: pos, to: pos + 1, insert: this.fold === '-' ? '+' : '-' } })
+        const collapsing = this.fold !== '-'
+        view.dispatch({
+          changes: { from: pos, to: pos + 1, insert: collapsing ? '-' : '+' },
+          // Collapsing with the cursor in the body would hide where typing goes; move it to the title.
+          selection: collapsing ? { anchor: view.state.doc.lineAt(pos).to } : undefined,
+        })
       })
     }
     const name = CALLOUT_LABELS[this.type]
@@ -185,7 +190,7 @@ function decorateLinksAndDates(
 
     const due = DUE_PATTERN.exec(line.text)
     if (due && !inCode(state, line.from + due.index)) {
-      const overdue = due[1] < today && /^\s*[-*+] \[ \]/.test(line.text)
+      const overdue = due[1] < today && TASK_LINE.exec(line.text)?.[1] === ' '
       const start = line.from + due.index
       out.push(Decoration.mark({ class: `cm-due${overdue ? ' cm-overdue' : ''}` }).range(start, start + due[0].length))
     }
