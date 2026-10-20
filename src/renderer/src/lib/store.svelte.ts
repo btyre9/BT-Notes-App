@@ -16,6 +16,8 @@ import {
   type Note,
   type Task,
 } from './note'
+import { isBoardPath } from './board'
+import { boards } from './boards.svelte'
 import { createIndex, remove, upsert } from './search'
 
 export type Filter =
@@ -78,6 +80,10 @@ function namesOf(note: Note): Set<string> {
 class NotesStore {
   ready = $state(false)
   root = $state<string | null>(null)
+  /** Boards first: the app opens to a board, and notes open beside it. */
+  mode = $state<'board' | 'notes'>('board')
+  /** In board mode, whether the selected note is open in a panel beside the board. */
+  panelOpen = $state(false)
   selectedId = $state<string | null>(null)
   filter = $state<Filter>({ kind: 'all' })
   query = $state('')
@@ -192,8 +198,13 @@ class NotesStore {
     this.idByPath.clear()
     this.savedTitles.clear()
     this.index = createIndex()
-    for (const file of files) this.addFile(file)
+    for (const file of files) if (!isBoardPath(file.path)) this.addFile(file)
+    boards.load(
+      files.filter((f) => isBoardPath(f.path)),
+      this.root ?? '',
+    )
     this.selectedId = this.visible[0]?.id ?? null
+    this.panelOpen = false
   }
 
   private addFile(file: NoteFile, id: string = crypto.randomUUID()): void {
@@ -233,9 +244,39 @@ class NotesStore {
       .save(save)
       .then((actual) => {
         const note = this.notes.get(id)
-        if (actual !== save.path && note?.path === save.path) this.put({ ...note, path: actual })
+        if (actual !== save.path && note?.path === save.path) {
+          this.put({ ...note, path: actual })
+          boards.fileMoved(save.path, actual)
+        }
       })
       .catch(this.showError)
+  }
+
+  /** The note stored at a path, ignoring case. */
+  noteByPath(path: string): Note | null {
+    void this.revision
+    const id = this.idByPath.get(key(path))
+    return id ? (this.notes.get(id) ?? null) : null
+  }
+
+  /** Notes to pick from: search results for a query, otherwise the most recently edited. */
+  findNotes(query: string, limit = 30): Note[] {
+    void this.revision
+    const q = query.trim()
+    const list = q
+      ? this.index.search(q).flatMap((r) => this.notes.get(r.id) ?? [])
+      : [...this.notes.values()].sort((a, b) => b.mtime - a.mtime)
+    return list.slice(0, limit)
+  }
+
+  /** In board mode, opens a note in the panel beside the board. */
+  openInPanel(id: string, focusLine?: number): void {
+    this.panelOpen = true
+    this.open(id, focusLine)
+  }
+
+  closePanel(): void {
+    this.panelOpen = false
   }
 
   /** The note a `[[link]]` points to: matched by title, then by file name, ignoring case. */
@@ -273,6 +314,7 @@ class NotesStore {
   }
 
   setFilter(filter: Filter): void {
+    this.mode = 'notes'
     this.filter = filter
     this.query = ''
     if (!this.visible.some((n) => n.id === this.selectedId)) this.select(this.visible[0]?.id ?? null)
@@ -330,6 +372,7 @@ class NotesStore {
   openDaily(date = new Date()): void {
     if (!this.root) return
     const path = dailyPath(date)
+    this.mode = 'notes'
     this.filter = { kind: 'daily' }
     this.query = ''
     const existing = this.idByPath.get(key(path))
@@ -354,6 +397,7 @@ class NotesStore {
     const position = list.findIndex((n) => n.id === id)
     this.drop(id)
     if (this.selectedId === id) this.selectedId = (list[position + 1] ?? list[position - 1])?.id ?? null
+    if (this.mode === 'board') this.panelOpen = false
     vault.trash(note.path).catch(this.showError)
   }
 
@@ -393,6 +437,7 @@ class NotesStore {
       oldNames.push(baseName(note.path))
       save.renameFrom = note.path
       this.put({ ...note, path })
+      boards.fileMoved(note.path, path)
     }
     this.savedTitles.set(id, note.title)
     if (oldNames.length) this.updateLinks(id, oldNames, this.linkName(this.notes.get(id)!))
@@ -427,6 +472,8 @@ class NotesStore {
       const save = this.takePendingSave(this.saveTimers.keys().next().value!)
       if (save) saves.push(save)
     }
+    // After the notes: saving a renamed note points board cards at its new file.
+    saves.push(...boards.takeAllSaves())
     if (saves.length) app.saveNow(saves)
   }
 
@@ -442,6 +489,7 @@ class NotesStore {
   }
 
   private handleEvent(event: VaultEvent): void {
+    if (isBoardPath(event.type === 'removed' ? event.path : event.file.path)) return boards.handleEvent(event)
     if (event.type === 'removed') {
       const id = this.idByPath.get(key(event.path))
       if (!id || this.saveTimers.has(id)) return
@@ -458,9 +506,14 @@ class NotesStore {
   }
 
   private handleMenu(action: MenuAction): void {
-    if (action === 'new-note') this.createNote()
+    // On a board, the board adds the note as a card and opens it beside the board.
+    if (action === 'new-note' && this.mode === 'board') boards.newNoteRequest++
+    else if (action === 'new-note') this.createNote()
     else if (action === 'choose-folder') void this.chooseFolder()
-    else if (action === 'search') this.searchFocus++
+    else if (action === 'search') {
+      this.mode = 'notes'
+      this.searchFocus++
+    }
   }
 }
 

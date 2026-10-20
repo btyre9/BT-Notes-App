@@ -26,7 +26,7 @@
         {/if}
         <button
           class="nav-item"
-          class:active={store.filter.kind === 'tag' && store.filter.tag === node.tag}
+          class:active={store.mode === 'notes' && store.filter.kind === 'tag' && store.filter.tag === node.tag}
           onclick={() => store.setFilter({ kind: 'tag', tag: node.tag })}
         >
           <Icon name="tag" />

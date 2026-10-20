@@ -107,6 +107,11 @@
       <button class="icon-button" title="Move to Trash" onclick={() => store.trashNote(store.selected!.id)}>
         <Icon name="trash" />
       </button>
+      {#if store.mode === 'board'}
+        <button class="icon-button" title="Close" onclick={() => store.closePanel()}>
+          <Icon name="close" />
+        </button>
+      {/if}
     </header>
   {/if}
   <div class="editor-scroll" class:hidden={!store.selected}>

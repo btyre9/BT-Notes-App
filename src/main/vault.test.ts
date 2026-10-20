@@ -63,4 +63,61 @@ describe('Vault.loadAll', () => {
     const paths = (await vault.loadAll()).map((n) => n.path).sort()
     expect(paths).toEqual(['Daily/2026-10-19.md', 'Notes/Untitled.md'])
   })
+
+  it('loads boards along with notes', async () => {
+    put('Boards/Home.canvas', '{"nodes":[],"edges":[]}')
+    put('.Trash/Old.canvas', '{}')
+    const paths = (await vault.loadAll()).map((n) => n.path).sort()
+    expect(paths).toEqual(['Boards/Home.canvas', 'Notes/Untitled.md'])
+  })
+})
+
+describe('Vault boards and attachments', () => {
+  it('gives a new board a free name instead of overwriting one it has not loaded', () => {
+    put('Boards/Ideas.canvas', 'OTHER DEVICE BOARD')
+    expect(vault.save({ path: 'Boards/Ideas.canvas', content: '{}' })).toBe('Boards/Ideas 2.canvas')
+  })
+
+  it('copies attachments under a free, safe name', async () => {
+    const data = new Uint8Array([1, 2, 3])
+    expect(await vault.addAttachment('photo.jpg', data)).toBe('Attachments/photo.jpg')
+    expect(await vault.addAttachment('photo.jpg', data)).toBe('Attachments/photo 2.jpg')
+    expect(await vault.addAttachment('..\evil:name?.png', data)).toBe('Attachments/evilname.png')
+    expect([...readFileSync(file('Attachments/photo 2.jpg'))]).toEqual([1, 2, 3])
+  })
+
+  it('gives files with the same name added at the same time different names', async () => {
+    const paths = await Promise.all([1, 2, 3].map((n) => vault.addAttachment('IMG_0001.jpg', new Uint8Array([n]))))
+    expect(new Set(paths).size).toBe(3)
+    expect(paths.map((p) => readFileSync(file(p))[0]).sort()).toEqual([1, 2, 3])
+  })
+
+  it('ignores trashing a board that was never saved', () => {
+    expect(() => vault.trash('Boards/Never saved.canvas')).not.toThrow()
+  })
+
+  it('moves a trashed board into .Trash', () => {
+    put('Boards/Old.canvas', '{}')
+    vault.trash('Boards/Old.canvas')
+    expect(existsSync(file('.Trash/Old.canvas'))).toBe(true)
+  })
+})
+
+describe('Vault.importFile', () => {
+  it('copies a file from disk into Attachments under a free name', async () => {
+    const outside = join(root, '..', `outside-${Date.now()}.mov`)
+    writeFileSync(outside, 'VIDEO')
+    try {
+      expect(await vault.importFile(outside)).toMatch(/^Attachments\/outside-\d+\.mov$/)
+      expect(await vault.importFile(outside)).toMatch(/^Attachments\/outside-\d+ 2\.mov$/)
+    } finally {
+      rmSync(outside)
+    }
+  })
+
+  it('uses a file that is already in Attachments where it is', async () => {
+    put('Attachments/Spec.pdf', 'PDF')
+    expect(await vault.importFile(file('Attachments/Spec.pdf'))).toBe('Attachments/Spec.pdf')
+    expect(existsSync(file('Attachments/Spec 2.pdf'))).toBe(false)
+  })
 })

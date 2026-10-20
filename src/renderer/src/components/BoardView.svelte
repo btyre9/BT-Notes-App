@@ -1,0 +1,1029 @@
+<script lang="ts">
+  import { untrack } from 'svelte'
+  import {
+    boardName,
+    boundsOf,
+    bringToFront,
+    colorOf,
+    COLUMN,
+    columnAt,
+    columnCards,
+    contains,
+    dropIntoColumn,
+    duplicate,
+    edgeShape,
+    facingSides,
+    freeSpot,
+    HOME_BOARD,
+    intersects,
+    isColumn,
+    keepsShape,
+    kindOf,
+    layoutColumns,
+    nearestSide,
+    newId,
+    PRESET_COLORS,
+    removeNodes,
+    setSwatch,
+    swatchOf,
+    type CanvasEdge,
+    type CanvasNode,
+    type Side,
+  } from '../lib/board'
+  import { boards, type View } from '../lib/boards.svelte'
+  import { store } from '../lib/store.svelte'
+  import { boardIconOf, type BoardIcon } from '../lib/boardIcons'
+  import BoardCard from './BoardCard.svelte'
+  import BoardIconPicker from './BoardIconPicker.svelte'
+  import BoardTile from './BoardTile.svelte'
+  import CardPicker from './CardPicker.svelte'
+  import Icon from './Icon.svelte'
+
+  const MIN_ZOOM = 0.1
+  const MAX_ZOOM = 4
+  const IMAGE_WIDTH = 320
+  /** Pointer travel, in screen pixels, before a press on a card becomes a drag. */
+  const DRAG_THRESHOLD = 3
+
+  type Gesture =
+    | { kind: 'pan'; startX: number; startY: number; from: View }
+    | {
+        kind: 'move'
+        startX: number
+        startY: number
+        origins: { node: CanvasNode; x: number; y: number }[]
+        moved: boolean
+        clickedId: string
+        collapseTo: boolean
+        /** Cards that can go into or come out of a column: not columns, nor cards moving with one. */
+        loose: string[]
+        /** Alt was held: the drag moves copies and leaves the cards where they were. */
+        copy: boolean
+      }
+    | {
+        kind: 'resize'
+        startX: number
+        startY: number
+        node: CanvasNode
+        width: number
+        height: number
+        ratio: number | null
+        /** For a column: the shapes of the images in it when the resize started. */
+        ratios: Map<string, number>
+        moved: boolean
+      }
+    | { kind: 'connect'; startX: number; startY: number }
+
+  const SIDES = new Set<string>(['top', 'right', 'bottom', 'left'])
+  const isSide = (side: unknown): side is Side => typeof side === 'string' && SIDES.has(side)
+
+  let viewport: HTMLDivElement
+  let imageInput: HTMLInputElement
+  let width = $state(0)
+  let height = $state(0)
+  let editingId = $state<string | null>(null)
+  let picker = $state<'note' | 'board' | 'chart' | null>(null)
+  /** A text card that was just edited or added, which grows to fit its rendered text. */
+  let autosizeId = $state<string | null>(null)
+  /** The board whose icon is being chosen, from its card or from its own title. */
+  let iconFor = $state<string | null>(null)
+  /** A PDF or image open in the viewer over the board. */
+  let viewing = $state<{ path: string; kind: 'pdf' | 'image' } | null>(null)
+  let dropping = $state(false)
+  let gesture: Gesture | null = null
+  /** The column that cards being dragged would go into. */
+  let dropColumnId = $state<string | null>(null)
+  /** An arrow being drawn from a card's side to the pointer, or to the card under it. */
+  let connecting = $state<{ from: CanvasNode; side: Side; point: { x: number; y: number }; targetId: string | null } | null>(null)
+
+  const board = $derived(boards.board)
+  const nodes = $derived(board?.data.nodes ?? [])
+  const isHome = $derived(boards.current === HOME_BOARD)
+  const view = $derived<View>(boards.view(boards.current) ?? { x: width / 2, y: height / 2, zoom: 1 })
+  const selected = $derived(new Set(boards.selection))
+
+  /** Cards on or near the screen; the rest aren't drawn, so big boards stay smooth. */
+  const shown = $derived.by(() => {
+    const margin = 300 / view.zoom
+    const area = {
+      x: -view.x / view.zoom - margin,
+      y: -view.y / view.zoom - margin,
+      width: width / view.zoom + 2 * margin,
+      height: height / view.zoom + 2 * margin,
+    }
+    return nodes.filter((n) => intersects(n, area) || selected.has(n.id) || n.id === editingId)
+  })
+  // From back to front: groups and columns, the cards in columns, arrows, then all other cards, so
+  // a loose card is never hidden by a column that grew over it.
+  const inColumns = $derived(new Set(nodes.filter(isColumn).flatMap((n) => (n.btCards as string[] | undefined) ?? [])))
+  const shownGroups = $derived(shown.filter((n) => n.type === 'group'))
+  const shownInColumns = $derived(shown.filter((n) => n.type !== 'group' && inColumns.has(n.id)))
+  const shownCards = $derived(shown.filter((n) => n.type !== 'group' && !inColumns.has(n.id)))
+
+  /** Arrows keep about the same thickness on screen at any zoom. */
+  const lineWidth = $derived(Math.max(2, 1.5 / view.zoom))
+  const headSize = $derived(Math.max(14, 9 / view.zoom))
+
+  const arrows = $derived.by(() => {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    return (board?.data.edges ?? []).flatMap((edge) => {
+      const from = byId.get(edge.fromNode)
+      const to = byId.get(edge.toNode)
+      if (!from || !to) return []
+      const [fromFacing, toFacing] = facingSides(from, to)
+      const ends = { start: edge.fromEnd === 'arrow', end: edge.toEnd !== 'none' }
+      const shape = edgeShape(from, isSide(edge.fromSide) ? edge.fromSide : fromFacing, to, isSide(edge.toSide) ? edge.toSide : toFacing, ends, headSize)
+      return [{ edge, shape, color: colorOf(edge.color) }]
+    })
+  })
+
+  const preview = $derived.by(() => {
+    if (!connecting) return null
+    const target = connecting.targetId ? nodes.find((n) => n.id === connecting!.targetId) : null
+    const to = target ?? connecting.point
+    return edgeShape(connecting.from, connecting.side, to, target ? nearestSide(target, connecting.point) : null, { start: false, end: true }, headSize)
+  })
+
+  /** Dot spacing on screen: 24 board units, doubled as you zoom out so the dots stay apart. */
+  const gridSize = $derived(24 * view.zoom * 2 ** Math.max(0, Math.ceil(Math.log2(12 / (24 * view.zoom)))))
+
+  const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+
+  function fitView(): View {
+    const bounds = boundsOf(nodes)
+    if (!bounds || !width || !height) return { x: width / 2, y: height / 2, zoom: 1 }
+    const zoom = clampZoom(Math.min(1, (width - 80) / bounds.width, (height - 80) / bounds.height))
+    return {
+      zoom,
+      x: width / 2 - (bounds.x + bounds.width / 2) * zoom,
+      y: height / 2 - (bounds.y + bounds.height / 2) * zoom,
+    }
+  }
+
+  // A board opened for the first time on this device is fitted to the window.
+  $effect(() => {
+    const path = boards.current
+    if (!width || !height || !board) return
+    untrack(() => {
+      if (!boards.views[path.toLowerCase()]) boards.setView(boards.view(path) ?? fitView(), path)
+    })
+  })
+
+  $effect(() => {
+    void boards.current
+    editingId = null
+    picker = null
+    iconFor = null
+  })
+
+  // A board card's icon picker belongs to that card; selecting something else closes it.
+  $effect(() => {
+    void boards.selection
+    untrack(() => {
+      if (iconFor && iconFor !== boards.current) iconFor = null
+    })
+  })
+
+  // File → New Note on a board adds a new note card.
+  let handledRequest = boards.newNoteRequest
+  $effect(() => {
+    if (boards.newNoteRequest === handledRequest) return
+    handledRequest = boards.newNoteRequest
+    untrack(() => addNewNote(''))
+  })
+
+  function toBoard(clientX: number, clientY: number): { x: number; y: number } {
+    const rect = viewport.getBoundingClientRect()
+    return { x: (clientX - rect.left - view.x) / view.zoom, y: (clientY - rect.top - view.y) / view.zoom }
+  }
+
+  const center = () => ({ x: (width / 2 - view.x) / view.zoom, y: (height / 2 - view.y) / view.zoom })
+
+  // ---- Adding cards ----
+
+  function addNode(card: Pick<CanvasNode, 'type' | 'width' | 'height'> & Partial<CanvasNode>, at = center()): CanvasNode {
+    // Groups and columns are areas to put cards in, not cards to keep clear of.
+    const cards = nodes.filter((n) => n.type !== 'group')
+    const node = { id: newId(), ...freeSpot(cards, at.x, at.y, card.width, card.height), ...card } as CanvasNode
+    boards.update((data) => data.nodes.push(node))
+    boards.selection = [node.id]
+    return node
+  }
+
+  function addText(at = center(), text = '', width = 260) {
+    const lines = text.split('\n').length
+    const node = addNode({ type: 'text', text, width, height: Math.min(400, 40 + lines * 20) }, at)
+    if (!text) editingId = node.id
+    else autosizeId = node.id
+  }
+
+  /** Ready-made tables, charts and diagrams to start from; edit the text to make them your own. */
+  const TEMPLATES: { label: string; width: number; text: string }[] = [
+    {
+      label: 'Table',
+      width: 380,
+      text: '| Task | Owner | Due |\n| --- | --- | --- |\n| Pick tile | | Oct 25 |\n| Call contractor | | |',
+    },
+    {
+      label: 'Pie chart',
+      width: 420,
+      text: '```mermaid\npie title Budget\n  "Cabinets" : 45\n  "Counters" : 25\n  "Tile" : 15\n  "Labor" : 15\n```',
+    },
+    {
+      label: 'Bar chart',
+      width: 460,
+      text: '```mermaid\nxychart-beta\n  title "Hours per module"\n  x-axis [Brakes, Engine, Chassis, Electrical]\n  y-axis "Hours" 0 --> 10\n  bar [4, 8, 6, 5]\n```',
+    },
+    {
+      label: 'Line chart',
+      width: 460,
+      text: '```mermaid\nxychart-beta\n  title "Sign-ups per week"\n  x-axis [W1, W2, W3, W4, W5]\n  y-axis "People" 0 --> 50\n  line [12, 18, 25, 31, 44]\n```',
+    },
+    {
+      label: 'Flowchart',
+      width: 480,
+      text: '```mermaid\nflowchart LR\n  A[Idea] --> B{Approved?}\n  B -- Yes --> C[Build]\n  B -- No --> D[Revise]\n  D --> A\n```',
+    },
+    {
+      label: 'Timeline',
+      width: 520,
+      text: '```mermaid\ntimeline\n  title Project X\n  October : Plan : Order tile\n  November : Demolition\n  December : Install\n```',
+    },
+  ]
+
+  /** Adds a color swatch, starting from one of the card colors, and opens it for editing. */
+  function addSwatch() {
+    const palette = Object.values(PRESET_COLORS)
+    const used = nodes.filter((n) => kindOf(n) === 'swatch').length
+    const color = palette[used % palette.length]
+    const node = addNode({ type: 'text', btSwatch: true, color, text: color.toUpperCase(), width: 160, height: 200 })
+    editingId = node.id
+  }
+
+  function addNoteCard(path: string) {
+    addNode({ type: 'file', file: path, width: 280, height: 220 })
+  }
+
+  function addNewNote(title: string) {
+    const note = store.createNote({ title: title || undefined, select: false })
+    if (!note) return
+    addNoteCard(note.path)
+    store.openInPanel(note.id, title ? 2 : 0)
+  }
+
+  function addBoardCard(path: string) {
+    addNode({ type: 'file', file: path, width: 120, height: 158 })
+  }
+
+  function addNewBoard(name: string) {
+    addBoardCard(boards.create(name))
+  }
+
+  function addColumn() {
+    const node = addNode({ type: 'group', label: '', btColumn: true, btCards: [], width: 300, height: COLUMN.header + COLUMN.empty })
+    editingId = node.id
+  }
+
+  function addLink(url: string, at = center()) {
+    addNode({ type: 'link', url, width: 280, height: 80 }, at)
+  }
+
+  async function imageSize(file: File): Promise<{ width: number; height: number }> {
+    try {
+      const bitmap = await createImageBitmap(file)
+      const size = { width: bitmap.width, height: bitmap.height }
+      bitmap.close()
+      return size
+    } catch {
+      return { width: 4, height: 3 } // A format the window can't decode, such as HEIC.
+    }
+  }
+
+  /** A video's shape, read from the frame the operating system shows for it. */
+  function videoSize(path: string): Promise<{ width: number; height: number }> {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
+      img.onerror = () => resolve({ width: 16, height: 9 })
+      img.src = `btfile://thumb/${path.split('/').map(encodeURIComponent).join('/')}?w=256`
+    })
+  }
+
+  /** Copies a file into Attachments/: straight from disk when it has a path, else its bytes. */
+  async function attach(file: File, pasted: boolean): Promise<string> {
+    const source = window.bt.app.filePath(file)
+    if (source) return window.bt.vault.importFile(source)
+    return window.bt.vault.addAttachment(attachmentName(file, pasted), new Uint8Array(await file.arrayBuffer()))
+  }
+
+  function attachmentName(file: File, pasted: boolean): string {
+    if (!pasted && file.name) return file.name
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const d = new Date()
+    const stamp = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}.${pad(d.getMinutes())}.${pad(d.getSeconds())}`
+    const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png'
+    return `Pasted image ${stamp}.${ext}`
+  }
+
+  /** The size a new card for a file starts at. */
+  async function cardSize(file: File, path: string): Promise<{ width: number; height: number }> {
+    const kind = kindOf({ id: '', type: 'file', file: path, x: 0, y: 0, width: 0, height: 0 })
+    if (kind === 'image' || kind === 'video') {
+      const size = kind === 'image' ? await imageSize(file) : await videoSize(path)
+      return { width: IMAGE_WIDTH, height: Math.round((IMAGE_WIDTH * size.height) / size.width) }
+    }
+    if (kind === 'pdf') return { width: 240, height: 311 } // A letter-size page.
+    return { width: 280, height: 76 }
+  }
+
+  /** Copies files into Attachments/ and lays their cards out in a row starting at a point. */
+  async function addFiles(files: File[], at = center(), pasted = false) {
+    if (!files.length) return
+    const path = boards.current
+    const added: CanvasNode[] = []
+    let x = at.x - IMAGE_WIDTH / 2
+    for (const file of files) {
+      try {
+        const rel = await attach(file, pasted)
+        const { width, height } = await cardSize(file, rel)
+        added.push({ id: newId(), type: 'file', file: rel, x: Math.round(x), y: Math.round(at.y - height / 2), width, height })
+        x += width + 20
+      } catch (err) {
+        boards.error = `Couldn't add ${file.name}: ${(err as Error).message}`
+      }
+    }
+    if (!added.length) return
+    boards.update((data) => {
+      data.nodes.push(...added)
+      // Dropped onto a column: they go into it.
+      if (columnAt(data, at)) dropIntoColumn(data, added.map((n) => n.id), at)
+    }, path)
+    if (boards.current === path) boards.selection = added.map((n) => n.id)
+  }
+
+  function chooseFiles() {
+    const files = [...(imageInput.files ?? [])]
+    imageInput.value = ''
+    void addFiles(files)
+  }
+
+  async function openFile(path: string) {
+    const message = await window.bt.vault.openFile(path)
+    if (message) boards.error = `${path}: ${message}`
+  }
+
+  /** Images the window can't show at full size, such as iPhone HEIC photos, open in their app. */
+  const viewable = (path: string) => !/\.(heic|heif|tiff?)$/i.test(path)
+
+  // ---- Changing cards ----
+
+  function openCard(node: CanvasNode) {
+    const kind = kindOf(node)
+    if (kind === 'text' || kind === 'group' || kind === 'column' || kind === 'swatch') editingId = node.id
+    else if (kind === 'note' && node.file) {
+      const note = store.noteByPath(node.file)
+      if (note) store.openInPanel(note.id)
+    } else if (kind === 'board' && node.file && boards.get(node.file)) boards.open(node.file)
+    else if (kind === 'link' && node.url) window.open(node.url)
+    else if ((kind === 'pdf' || kind === 'image') && node.file && viewable(node.file)) viewing = { path: node.file, kind }
+    else if (kind === 'image' && node.file) void openFile(node.file)
+    // Videos play on the board; double-click opens them in the video player, for full screen or
+    // a format the app can't play. Office and other files open in their own app.
+    else if ((kind === 'video' || kind === 'file') && node.file) void openFile(node.file)
+  }
+
+  function commitText(node: CanvasNode, text: string) {
+    editingId = null
+    if (kindOf(node) === 'swatch') {
+      const [hex, ...name] = text.split('\n')
+      const before = swatchOf(node)
+      if (hex === before.hex && name.join(' ').trim() === before.name) return
+      boards.update(() => setSwatch(node, hex, name.join(' ').trim()))
+      return
+    }
+    if (node.type === 'group') {
+      const label = text.trim()
+      if (label === (node.label ?? '')) return
+      boards.update(() => {
+        if (label) node.label = label
+        else delete node.label
+      })
+      return
+    }
+    if (!text.trim()) {
+      boards.update((data) => removeNodes(data, new Set([node.id])))
+      boards.selection = boards.selection.filter((id) => id !== node.id)
+      return
+    }
+    if (text === node.text) return
+    boards.update(() => (node.text = text))
+    autosizeId = node.id
+  }
+
+  /** Grows a just-edited text card to fit its rendered text, as part of the same undo step. */
+  function fitText(node: CanvasNode, needed: number) {
+    if (autosizeId !== node.id) return
+    autosizeId = null
+    if (needed > node.height) {
+      boards.mutate((data) => {
+        node.height = Math.ceil(needed)
+        layoutColumns(data)
+      })
+    }
+  }
+
+  /** The board a single selected board card links to, whose icon the toolbar can change. */
+  const selectedBoard = $derived.by(() => {
+    if (selected.size !== 1) return null
+    const node = nodes.find((n) => selected.has(n.id))
+    return node && kindOf(node) === 'board' && node.file && boards.get(node.file) ? node.file : null
+  })
+
+  async function setIconImage(path: string, file: File) {
+    try {
+      const image = await attach(file, false)
+      boards.setIcon(path, { ...boardIconOf(boards.get(path)?.data), image })
+    } catch (err) {
+      boards.error = `Couldn't use ${file.name}: ${(err as Error).message}`
+    }
+  }
+
+  function deleteSelection() {
+    if (!selected.size) return
+    const ids = new Set(selected)
+    boards.update((data) => {
+      removeNodes(data, ids)
+      data.edges = data.edges.filter((e) => !ids.has(e.id))
+    })
+    boards.selection = []
+  }
+
+  function setColor(color: string | null) {
+    boards.update((data) => {
+      for (const item of [...data.nodes, ...data.edges]) {
+        if (!selected.has(item.id)) continue
+        // A swatch is its color: a card color becomes its new color, and it can't have none.
+        if ('type' in item && kindOf(item as CanvasNode) === 'swatch') {
+          const hex = colorOf(color ?? undefined)
+          if (hex) setSwatch(item as CanvasNode, hex, swatchOf(item as CanvasNode).name)
+          continue
+        }
+        if (color) item.color = color
+        else delete item.color
+      }
+    })
+  }
+
+  // ---- Pointer gestures ----
+
+  function startPan(event: PointerEvent) {
+    gesture = { kind: 'pan', startX: event.clientX, startY: event.clientY, from: view }
+  }
+
+  function onBackgroundDown(event: PointerEvent) {
+    if (event.button === 1 || (event.button === 0 && !(event.target as Element).closest('.card'))) {
+      if (event.button === 0 && !event.shiftKey) boards.selection = []
+      startPan(event)
+    }
+  }
+
+  function onCardDown(event: PointerEvent, node: CanvasNode) {
+    if (event.button === 1) return startPan(event)
+    if (event.button !== 0 || node.id === editingId) return
+    event.stopPropagation()
+    const wasSelected = selected.has(node.id)
+    if (event.shiftKey) {
+      boards.selection = wasSelected ? boards.selection.filter((id) => id !== node.id) : [...boards.selection, node.id]
+      if (wasSelected) return
+    } else if (!wasSelected) {
+      boards.selection = [node.id]
+    }
+    // Moving a group or column moves the cards inside it.
+    const moving = nodes.filter((n) => boards.selection.includes(n.id))
+    const carried = new Set<string>()
+    for (const group of moving.filter((n) => n.type === 'group')) {
+      const inside = isColumn(group) && board ? columnCards(board.data, group) : nodes.filter((n) => n !== group && contains(group, n))
+      for (const n of inside) carried.add(n.id)
+    }
+    for (const n of nodes) if (carried.has(n.id) && !moving.includes(n)) moving.push(n)
+    gesture = {
+      kind: 'move',
+      startX: event.clientX,
+      startY: event.clientY,
+      origins: moving.map((n) => ({ node: n, x: n.x, y: n.y })),
+      moved: false,
+      clickedId: node.id,
+      collapseTo: wasSelected && !event.shiftKey && boards.selection.length > 1,
+      loose: moving.filter((n) => n.type !== 'group' && !carried.has(n.id)).map((n) => n.id),
+      copy: event.altKey,
+    }
+    // Keeps Windows from opening the menu bar when Alt is let go after an Alt+drag.
+    if (event.altKey) event.preventDefault()
+  }
+
+  /** Alt+drag: copies the cards being dragged, and the drag carries on with the copies. */
+  function startCopy(g: Extract<Gesture, { kind: 'move' }>) {
+    if (!board) return
+    const data = board.data
+    const copied = duplicate(
+      $state.snapshot(data) as typeof data,
+      g.origins.map((o) => $state.snapshot(o.node) as CanvasNode),
+    )
+    boards.mutate((d) => {
+      d.nodes.push(...copied.nodes)
+      d.edges.push(...copied.edges)
+    })
+    // The copies as they are on the board now, so moving them updates what's drawn.
+    const live = new Map(data.nodes.map((n) => [n.id, n]))
+    g.origins = g.origins.map((o) => ({ ...o, node: live.get(copied.ids.get(o.node.id)!)! }))
+    g.loose = g.loose.map((id) => copied.ids.get(id)!)
+    g.clickedId = copied.ids.get(g.clickedId) ?? g.clickedId
+    boards.selection = boards.selection.flatMap((id) => copied.ids.get(id) ?? [])
+  }
+
+  function onConnectDown(event: PointerEvent, node: CanvasNode, side: Side) {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    gesture = { kind: 'connect', startX: event.clientX, startY: event.clientY }
+    connecting = { from: node, side, point: toBoard(event.clientX, event.clientY), targetId: null }
+    viewport.setPointerCapture(event.pointerId)
+  }
+
+  /** The card under a point on screen, other than the given one. */
+  function cardAt(clientX: number, clientY: number, except: string): CanvasNode | null {
+    const id = document.elementFromPoint(clientX, clientY)?.closest<HTMLElement>('.card')?.dataset.id
+    return id && id !== except ? (nodes.find((n) => n.id === id) ?? null) : null
+  }
+
+  function onEdgeDown(event: PointerEvent, edge: CanvasEdge) {
+    if (event.button === 1) return startPan(event)
+    if (event.button !== 0) return
+    event.stopPropagation()
+    if (event.shiftKey) {
+      boards.selection = selected.has(edge.id) ? boards.selection.filter((id) => id !== edge.id) : [...boards.selection, edge.id]
+    } else {
+      boards.selection = [edge.id]
+    }
+  }
+
+  function commitLabel(edge: CanvasEdge, event: Event) {
+    // Switching to another window also takes focus away; keep editing until the user comes back.
+    if (!document.hasFocus()) return
+    editingId = null
+    const label = (event.currentTarget as HTMLInputElement).value.trim()
+    if (label === (edge.label ?? '')) return
+    boards.update((data) => {
+      const target = data.edges.find((e) => e.id === edge.id)
+      if (!target) return
+      if (label) target.label = label
+      else delete target.label
+    })
+  }
+
+  const focusOnMount = (input: HTMLInputElement) => {
+    input.focus()
+    input.select()
+  }
+
+  function onResizeDown(event: PointerEvent, node: CanvasNode) {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    gesture = {
+      kind: 'resize',
+      startX: event.clientX,
+      startY: event.clientY,
+      node,
+      width: node.width,
+      height: node.height,
+      // Images keep their shape.
+      ratio: keepsShape(node) ? node.height / node.width : null,
+      ratios: new Map(
+        isColumn(node) && board
+          ? columnCards(board.data, node)
+              .filter((n) => keepsShape(n) && n.width > 0)
+              .map((n) => [n.id, n.height / n.width])
+          : [],
+      ),
+      moved: false,
+    }
+  }
+
+  function onPointerMove(event: PointerEvent) {
+    if (!gesture) return
+    // The button was released where the board couldn't see it, for example over the toolbar.
+    if (event.buttons === 0) {
+      gesture = null
+      connecting = null
+      dropColumnId = null
+      return
+    }
+    const dx = event.clientX - gesture.startX
+    const dy = event.clientY - gesture.startY
+    // The pointer is captured only once a drag starts: while it's captured, Chrome sends clicks
+    // and double-clicks to the board instead of the card under the pointer.
+    const capture = () => viewport.hasPointerCapture(event.pointerId) || viewport.setPointerCapture(event.pointerId)
+    if (gesture.kind === 'pan') {
+      capture()
+      boards.setView({ ...gesture.from, x: gesture.from.x + dx, y: gesture.from.y + dy })
+      return
+    }
+    if (gesture.kind === 'connect') {
+      if (connecting) {
+        connecting.point = toBoard(event.clientX, event.clientY)
+        connecting.targetId = cardAt(event.clientX, event.clientY, connecting.from.id)?.id ?? null
+      }
+      return
+    }
+    if (!gesture.moved) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return
+      gesture.moved = true
+      capture()
+      boards.checkpoint()
+      if (gesture.kind === 'move' && gesture.copy) startCopy(gesture)
+    }
+    const g = gesture
+    if (g.kind === 'move') {
+      boards.mutate(() => {
+        for (const o of g.origins) {
+          o.node.x = Math.round(o.x + dx / view.zoom)
+          o.node.y = Math.round(o.y + dy / view.zoom)
+        }
+      })
+      if (g.loose.length && board) {
+        const columns = new Set(g.origins.filter((o) => isColumn(o.node)).map((o) => o.node.id))
+        dropColumnId = columnAt(board.data, toBoard(event.clientX, event.clientY), columns)?.id ?? null
+      }
+    } else {
+      const w = Math.max(60, Math.round(g.width + dx / view.zoom))
+      boards.mutate((data) => {
+        g.node.width = w
+        // A column's height follows its cards.
+        if (isColumn(g.node)) layoutColumns(data, g.ratios)
+        else g.node.height = g.ratio ? Math.round(w * g.ratio) : Math.max(40, Math.round(g.height + dy / view.zoom))
+      })
+    }
+  }
+
+  function onPointerUp(event: PointerEvent) {
+    const g = gesture
+    // A click on one of several selected cards selects just that card.
+    if (g?.kind === 'move' && !g.moved && g.collapseTo) boards.selection = [g.clickedId]
+    // Dropped cards go into the column under the pointer, or out of the one they were in.
+    if (g?.kind === 'move' && g.moved) {
+      const point = toBoard(event.clientX, event.clientY)
+      boards.mutate((data) => {
+        bringToFront(data, new Set(g.origins.map((o) => o.node.id)))
+        const columns = new Set(g.origins.filter((o) => isColumn(o.node)).map((o) => o.node.id))
+        if (g.loose.length) dropIntoColumn(data, g.loose, point, columns)
+        else layoutColumns(data)
+      })
+    }
+    // A resized card in a column gets the column's width back.
+    if (g?.kind === 'resize' && g.moved) boards.mutate(layoutColumns)
+    if (g?.kind === 'connect' && connecting?.targetId) {
+      const { from, side, point, targetId } = connecting
+      const target = nodes.find((n) => n.id === targetId)!
+      const edge: CanvasEdge = { id: newId(), fromNode: from.id, fromSide: side, toNode: targetId, toSide: nearestSide(target, point) }
+      boards.update((data) => data.edges.push(edge))
+      boards.selection = [edge.id]
+    }
+    connecting = null
+    dropColumnId = null
+    gesture = null
+    if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+  }
+
+  function onBackgroundDoubleClick(event: MouseEvent) {
+    if ((event.target as Element).closest('.card')) return
+    addText(toBoard(event.clientX, event.clientY))
+  }
+
+  // Wheel scrolls the board; Ctrl+wheel (and pinching on a trackpad) zooms around the pointer.
+  // Added by hand because it must be able to cancel the browser's own scrolling.
+  $effect(() => {
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const lines = event.deltaMode === 1 ? 20 : 1
+      if (event.ctrlKey || event.metaKey) {
+        const rect = viewport.getBoundingClientRect()
+        const px = event.clientX - rect.left
+        const py = event.clientY - rect.top
+        const zoom = clampZoom(view.zoom * Math.exp(-event.deltaY * lines * 0.002))
+        const k = zoom / view.zoom
+        boards.setView({ zoom, x: px - (px - view.x) * k, y: py - (py - view.y) * k })
+      } else {
+        const dx = (event.shiftKey ? event.deltaY : event.deltaX) * lines
+        const dy = (event.shiftKey ? 0 : event.deltaY) * lines
+        boards.setView({ ...view, x: view.x - dx, y: view.y - dy })
+      }
+    }
+    viewport.addEventListener('wheel', onWheel, { passive: false })
+    return () => viewport.removeEventListener('wheel', onWheel)
+  })
+
+  // ---- Keyboard, paste and drop ----
+
+  const isEditable = (target: EventTarget | null) =>
+    target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+
+  function onKeyDown(event: KeyboardEvent) {
+    if (iconFor) return
+    if (viewing && event.key === 'Escape') {
+      viewing = null
+      event.preventDefault()
+      return
+    }
+    if (isEditable(event.target) || picker || viewing) return
+    const mod = event.ctrlKey || event.metaKey
+    if (event.key === 'Delete' || event.key === 'Backspace') deleteSelection()
+    else if (event.key === 'Escape') boards.selection = []
+    else if (mod && event.key.toLowerCase() === 'z') {
+      autosizeId = null
+      if (event.shiftKey) boards.redo()
+      else boards.undo()
+    } else if (mod && event.key.toLowerCase() === 'y') {
+      autosizeId = null
+      boards.redo()
+    }
+    else if (mod && event.key.toLowerCase() === 'a') boards.selection = nodes.map((n) => n.id)
+    else return
+    event.preventDefault()
+  }
+
+  function onPaste(event: ClipboardEvent) {
+    if (isEditable(event.target) || !event.clipboardData) return
+    const files = [...event.clipboardData.files]
+    const text = event.clipboardData.getData('text/plain').trim()
+    if (files.length) void addFiles(files, center(), true)
+    else if (/^https?:\/\/\S+$/.test(text)) addLink(text)
+    else if (text) addText(center(), text)
+    else return
+    event.preventDefault()
+  }
+
+  const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
+
+  function onDragOver(event: DragEvent) {
+    if (!hasFiles(event)) return
+    event.preventDefault()
+    dropping = true
+  }
+
+  function onDrop(event: DragEvent) {
+    dropping = false
+    if (!hasFiles(event)) return
+    event.preventDefault()
+    void addFiles([...(event.dataTransfer?.files ?? [])], toBoard(event.clientX, event.clientY))
+  }
+
+  function renameBoard(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    const name = input.value.trim()
+    if (name && board) boards.rename(board.path, name)
+    else input.value = boardName(boards.current)
+  }
+</script>
+
+<svelte:window
+  onkeydown={onKeyDown}
+  onpaste={onPaste}
+  onpointerdown={(e) => {
+    // A click anywhere else closes the icon picker, so the board's keys work again.
+    if (iconFor && !(e.target as Element).closest('.icon-picker-anchor, .icon-toggle')) iconFor = null
+  }}
+/>
+
+{#snippet iconPicker(path: string, side: 'left' | 'right')}
+  <div class="icon-picker-anchor {side}">
+    <BoardIconPicker
+      icon={boardIconOf(boards.get(path)?.data)}
+      onchange={(icon) => boards.setIcon(path, icon)}
+      onimage={(file) => setIconImage(path, file)}
+      onclose={() => (iconFor = null)}
+    />
+  </div>
+{/snippet}
+
+<main class="board-pane">
+  <header class="board-toolbar">
+    {#if boards.canGoBack}
+      <button class="icon-button" title="Back" onclick={() => boards.back()}><Icon name="back" /></button>
+    {/if}
+    <div class="insert">
+      <button class="title-icon icon-toggle" title="Change this board's icon" aria-expanded={iconFor === boards.current} onclick={() => (iconFor = iconFor === boards.current ? null : boards.current)}>
+        <BoardTile icon={boardIconOf(board?.data)} size={16} />
+      </button>
+      {#if iconFor && iconFor === boards.current}
+        {@render iconPicker(iconFor, 'left')}
+      {/if}
+    </div>
+    {#if isHome}
+      <h1 class="board-title">Home</h1>
+    {:else}
+      {#key boards.current}
+        <input
+          class="board-title"
+          value={boardName(boards.current)}
+          aria-label="Board name"
+          spellcheck="false"
+          onchange={renameBoard}
+          onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+        />
+      {/key}
+    {/if}
+    <span class="spacer"></span>
+    {#if selected.size}
+      <div class="swatches" role="group" aria-label="Card color">
+        <button class="swatch swatch-none" title="No color" aria-label="No color" onclick={() => setColor(null)}></button>
+        {#each Object.entries(PRESET_COLORS) as [id, color] (id)}
+          <button class="swatch" style:background={color} title="Color {id}" aria-label="Color {id}" onclick={() => setColor(id)}></button>
+        {/each}
+      </div>
+      {#if selectedBoard}
+        <div class="insert">
+          <button class="text-button icon-toggle" title="Change this board's icon" aria-expanded={iconFor === selectedBoard} onclick={() => (iconFor = iconFor === selectedBoard ? null : selectedBoard)}>
+            <Icon name="board" /> <span class="button-label">Icon</span>
+          </button>
+          {#if iconFor && iconFor === selectedBoard}
+            {@render iconPicker(iconFor, 'right')}
+          {/if}
+        </div>
+      {/if}
+      <button class="icon-button" title="Delete (Del)" onclick={deleteSelection}><Icon name="trash" /></button>
+      <span class="toolbar-divider"></span>
+    {/if}
+    <button class="text-button" title="Add text (or double-click the board)" onclick={() => addText()}><Icon name="text" /> <span class="button-label">Text</span></button>
+    <div class="insert">
+      <button class="text-button" title="Add a note" aria-expanded={picker === 'note'} onclick={() => (picker = picker === 'note' ? null : 'note')}>
+        <Icon name="notes" /> <span class="button-label">Note</span>
+      </button>
+      {#if picker === 'note'}
+        <CardPicker kind="note" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
+      {/if}
+    </div>
+    <div class="insert">
+      <button class="text-button" title="Add a table, chart or diagram" aria-expanded={picker === 'chart'} onclick={() => (picker = picker === 'chart' ? null : 'chart')}>
+        <Icon name="chart" /> <span class="button-label">Chart</span>
+      </button>
+      {#if picker === 'chart'}
+        <div class="menu chart-menu" role="menu">
+          {#each TEMPLATES as template (template.label)}
+            <button
+              role="menuitem"
+              onclick={() => {
+                picker = null
+                addText(center(), template.text, template.width)
+              }}>{template.label}</button
+            >
+          {/each}
+        </div>
+      {/if}
+    </div>
+    <div class="insert">
+      <button class="text-button" title="Add a board" aria-expanded={picker === 'board'} onclick={() => (picker = picker === 'board' ? null : 'board')}>
+        <Icon name="board" /> <span class="button-label">Board</span>
+      </button>
+      {#if picker === 'board'}
+        <CardPicker kind="board" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
+      {/if}
+    </div>
+    <button class="text-button" title="Add images, PDFs, videos or documents (or drop or paste them)" onclick={() => imageInput.click()}>
+      <Icon name="image" /> <span class="button-label">Files</span>
+    </button>
+    <button class="text-button" title="Add a color swatch" onclick={addSwatch}><Icon name="color" /> <span class="button-label">Color</span></button>
+    <button class="text-button" title="Add a column: cards dragged into it stack top to bottom" onclick={addColumn}><Icon name="column" /> <span class="button-label">Column</span></button>
+    <input class="hidden-input" type="file" multiple bind:this={imageInput} onchange={chooseFiles} />
+    <span class="toolbar-divider"></span>
+    <button class="text-button zoom-button" title="Fit board to window" onclick={() => boards.setView(fitView())}>
+      <Icon name="fit" />
+      {Math.round(view.zoom * 100)}%
+    </button>
+    {#if !isHome}
+      <button class="icon-button" title="Move board to Trash" onclick={() => boards.trash(boards.current)}><Icon name="trash" /></button>
+    {/if}
+  </header>
+
+  <div
+    class="board-viewport"
+    class:dropping
+    bind:this={viewport}
+    bind:clientWidth={width}
+    bind:clientHeight={height}
+    onpointerdown={onBackgroundDown}
+    onpointermove={onPointerMove}
+    onpointerup={onPointerUp}
+    onpointercancel={onPointerUp}
+    ondblclick={onBackgroundDoubleClick}
+    ondragover={onDragOver}
+    ondragleave={() => (dropping = false)}
+    ondrop={onDrop}
+    style:--zoom={view.zoom}
+    style:background-position="{view.x}px {view.y}px"
+    style:background-size="{gridSize}px {gridSize}px"
+    role="application"
+    aria-label="Board"
+  >
+    {#snippet card(node: CanvasNode)}
+      <BoardCard
+        {node}
+        zoom={view.zoom}
+        selected={selected.has(node.id)}
+        editing={editingId === node.id}
+        dropTarget={dropColumnId === node.id}
+        linkTarget={connecting?.targetId === node.id}
+        onpointerdown={(e) => onCardDown(e, node)}
+        onresizestart={(e) => onResizeDown(e, node)}
+        onconnectstart={(e, side) => onConnectDown(e, node, side)}
+        onopen={() => openCard(node)}
+        autosize={autosizeId === node.id}
+        oncommit={(text) => commitText(node, text)}
+        onautosize={(h) => fitText(node, h)}
+      />
+    {/snippet}
+    <div class="board-world" class:connecting={!!connecting} style:transform="translate({view.x}px, {view.y}px) scale({view.zoom})">
+      {#each shownGroups as node (node.id)}{@render card(node)}{/each}
+      {#each shownInColumns as node (node.id)}{@render card(node)}{/each}
+      <svg class="board-arrows" width="1" height="1" aria-hidden="true">
+        {#each arrows as { edge, shape, color } (edge.id)}
+          <g class="arrow" class:selected={selected.has(edge.id)} style:--arrow-color={color}>
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <path
+              class="arrow-hit"
+              d={shape.d}
+              stroke-width={lineWidth + 12 / view.zoom}
+              onpointerdown={(e) => onEdgeDown(e, edge)}
+              ondblclick={(e) => {
+                e.stopPropagation()
+                editingId = edge.id
+              }}
+            />
+            <path class="arrow-line" d={shape.d} stroke-width={lineWidth} />
+            {#if shape.startHead}<path class="arrow-head" d={shape.startHead} />{/if}
+            {#if shape.endHead}<path class="arrow-head" d={shape.endHead} />{/if}
+          </g>
+        {/each}
+        {#if preview}
+          <g class="arrow preview">
+            <path class="arrow-line" d={preview.d} stroke-width={lineWidth} />
+            <path class="arrow-head" d={preview.endHead} />
+          </g>
+        {/if}
+      </svg>
+      {#each arrows as { edge, shape } (edge.id)}
+        {#if editingId === edge.id}
+          <input
+            class="arrow-label"
+            style:left="{shape.mid.x}px"
+            style:top="{shape.mid.y}px"
+            value={edge.label ?? ''}
+            placeholder="Label"
+            {@attach focusOnMount}
+            onblur={(e) => commitLabel(edge, e)}
+            onkeydown={(e) => (e.key === 'Enter' || e.key === 'Escape') && e.currentTarget.blur()}
+            onpointerdown={(e) => e.stopPropagation()}
+            ondblclick={(e) => e.stopPropagation()}
+          />
+        {:else if edge.label}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="arrow-label"
+            class:selected={selected.has(edge.id)}
+            style:left="{shape.mid.x}px"
+            style:top="{shape.mid.y}px"
+            onpointerdown={(e) => onEdgeDown(e, edge)}
+            ondblclick={(e) => {
+              e.stopPropagation()
+              editingId = edge.id
+            }}
+          >
+            {edge.label}
+          </div>
+        {/if}
+      {/each}
+      {#each shownCards as node (node.id)}{@render card(node)}{/each}
+    </div>
+    {#if !nodes.length}
+      <p class="board-empty">Double-click to add text, or drop images, PDFs, videos and documents here.<br />Use the toolbar to add notes, boards and columns.</p>
+    {/if}
+  </div>
+
+  {#if viewing}
+    {@const url = `btfile://file/${viewing.path.split('/').map(encodeURIComponent).join('/')}`}
+    <div class="viewer" role="dialog" aria-label={viewing.path}>
+      <header class="viewer-bar">
+        <span class="viewer-title">{viewing.path.slice(viewing.path.lastIndexOf('/') + 1)}</span>
+        <span class="spacer"></span>
+        <button class="text-button" onclick={() => viewing && openFile(viewing.path)}>Open in its app</button>
+        <button class="icon-button" title="Close (Esc)" onclick={() => (viewing = null)}><Icon name="close" /></button>
+      </header>
+      {#if viewing.kind === 'pdf'}
+        <iframe class="viewer-frame" src={url} title={viewing.path}></iframe>
+      {:else}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+        <div class="viewer-image" onclick={() => (viewing = null)} role="presentation">
+          <img src={url} alt={viewing.path} />
+        </div>
+      {/if}
+    </div>
+  {/if}
+</main>

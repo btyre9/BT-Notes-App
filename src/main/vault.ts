@@ -1,19 +1,24 @@
-import { existsSync, mkdirSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
+import { constants, existsSync, mkdirSync, renameSync, statSync, watch, writeFileSync, type FSWatcher } from 'node:fs'
 import * as fs from 'node:fs/promises'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path'
 import type { NoteFile, PendingSave, VaultEvent } from '../shared/types'
 
 const TRASH = '.Trash'
 const ATTACHMENTS = 'Attachments'
-// Google Drive's virtual drive doesn't always report changes synced from other devices,
+// Cloud sync folders don't always report changes synced from other devices,
 // so the folder is also rescanned on a timer.
 const RESCAN_MS = 60_000
 const DEBOUNCE_MS = 300
 
-/** True for Markdown files outside hidden folders, .Trash and Attachments. */
+/** A file name that's safe on Windows and macOS, keeping as much of the original as it can. */
+function safeName(name: string): string {
+  return basename(name).replace(/[\\/:*?"<>|#^[\]]/g, '').replace(/^[. ]+|[. ]+$/g, '') || 'Attachment'
+}
+
+/** True for notes (.md) and boards (.canvas) outside hidden folders, .Trash and Attachments. */
 function isNotePath(rel: string): boolean {
   const parts = rel.split('/')
-  return rel.toLowerCase().endsWith('.md') && parts[0] !== ATTACHMENTS && !parts.some((p) => p.startsWith('.'))
+  return /\.(md|canvas)$/i.test(rel) && parts[0] !== ATTACHMENTS && !parts.some((p) => p.startsWith('.'))
 }
 
 /**
@@ -32,7 +37,8 @@ export class Vault {
     private emit: (event: VaultEvent) => void,
   ) {}
 
-  private abs(rel: string): string {
+  /** The absolute path of a file in the notes folder; throws for paths that lead outside it. */
+  abs(rel: string): string {
     const path = resolve(this.root, rel)
     if (!path.startsWith(resolve(this.root) + sep)) throw new Error(`Path is outside the notes folder: ${rel}`)
     return path
@@ -81,9 +87,10 @@ export class Vault {
 
   /** `dir/Name 2.md`, `dir/Name 3.md`… whichever is free on disk first. */
   private freePath(rel: string): string {
-    const base = rel.slice(0, -'.md'.length)
+    const ext = extname(rel)
+    const base = ext ? rel.slice(0, -ext.length) : rel
     let candidate = rel
-    for (let i = 2; existsSync(this.abs(candidate)); i++) candidate = `${base} ${i}.md`
+    for (let i = 2; existsSync(this.abs(candidate)); i++) candidate = `${base} ${i}${ext}`
     return candidate
   }
 
@@ -110,11 +117,51 @@ export class Vault {
     return target
   }
 
-  /** Moves a note into .Trash inside the notes folder, so it syncs and can be restored. */
+  /** Copies a dropped or pasted file into Attachments/ under a free name; returns its path. */
+  async addAttachment(name: string, data: Uint8Array): Promise<string> {
+    return this.writeAttachment(name, (target) => fs.writeFile(target, data, { flag: 'wx' }))
+  }
+
+  /**
+   * Copies a file from disk into Attachments/ and returns its path there. Large files such as
+   * videos are copied directly rather than passed through the window. A file that's already in
+   * Attachments/ is used where it is.
+   */
+  async importFile(source: string): Promise<string> {
+    const from = resolve(source)
+    // A file that's already in the notes folder is used where it is, so a dropped note or board
+    // links to the one the app knows rather than to a copy.
+    if (from.toLowerCase().startsWith(resolve(this.root).toLowerCase() + sep) && existsSync(from)) return this.rel(from)
+    // Notes and boards from elsewhere go where notes and boards live, so the app loads them.
+    const folder = /\.md$/i.test(from) ? 'Notes' : /\.canvas$/i.test(from) ? 'Boards' : ATTACHMENTS
+    return this.writeAttachment(from, (target) => fs.copyFile(from, target, constants.COPYFILE_EXCL), folder)
+  }
+
+  /** Writes a new file into a folder (Attachments/ unless given) under the first free version of a name. */
+  private async writeAttachment(name: string, write: (target: string) => Promise<void>, folder = ATTACHMENTS): Promise<string> {
+    const safe = safeName(name)
+    await fs.mkdir(this.abs(folder), { recursive: true })
+    // Writing fails if the file appeared since freePath looked, for example when two files with
+    // the same name are dropped together; then the next free name is tried.
+    for (;;) {
+      const rel = this.freePath(`${folder}/${safe}`)
+      try {
+        await write(this.abs(rel))
+        return rel
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+      }
+    }
+  }
+
+  /** Moves a note or board into .Trash inside the notes folder, so it syncs and can be restored. */
   trash(rel: string): void {
-    const name = basename(rel, '.md')
-    let dest = join(this.root, TRASH, `${name}.md`)
-    for (let i = 2; existsSync(dest); i++) dest = join(this.root, TRASH, `${name} ${i}.md`)
+    // A board trashed before its first save has no file yet.
+    if (!existsSync(this.abs(rel))) return
+    const ext = extname(rel)
+    const name = basename(rel, ext)
+    let dest = join(this.root, TRASH, `${name}${ext}`)
+    for (let i = 2; existsSync(dest); i++) dest = join(this.root, TRASH, `${name} ${i}${ext}`)
     mkdirSync(dirname(dest), { recursive: true })
     renameSync(this.abs(rel), dest)
     this.known.delete(rel)

@@ -1,17 +1,26 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { MenuAction, PendingSave } from '../shared/types'
+import { fileVersion, handleScheme, registerScheme, savePdfPreview } from './files'
 import { Vault } from './vault'
 
-const DEFAULT_ROOT = process.platform === 'win32' ? 'G:\\My Drive\\BT Notes' : null
+/**
+ * Where Dropbox keeps the notes folder: ~/Dropbox on Windows; on a Mac, ~/Library/CloudStorage
+ * for current versions of Dropbox and ~/Dropbox for older ones.
+ */
+const DEFAULT_ROOTS = [
+  ...(process.platform === 'darwin' ? [join(homedir(), 'Library', 'CloudStorage', 'Dropbox', 'BT Notes')] : []),
+  join(homedir(), 'Dropbox', 'BT Notes'),
+]
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 
 let win: BrowserWindow | null = null
 let vault: Vault | null = null
 
-/** The notes folder: BT_NOTES_ROOT if set, then the saved choice, then the default Google Drive folder. */
+/** The notes folder: BT_NOTES_ROOT if set, then the saved choice, then the default Dropbox folder. */
 async function savedRoot(): Promise<string | null> {
   if (process.env.BT_NOTES_ROOT) return process.env.BT_NOTES_ROOT
   try {
@@ -20,7 +29,7 @@ async function savedRoot(): Promise<string | null> {
   } catch {
     // No settings yet on first run.
   }
-  return DEFAULT_ROOT && existsSync(DEFAULT_ROOT) ? DEFAULT_ROOT : null
+  return DEFAULT_ROOTS.find((root) => existsSync(root)) ?? null
 }
 
 function openVault(root: string): void {
@@ -49,6 +58,33 @@ ipcMain.handle('vault:choose', async () => {
 ipcMain.handle('vault:load', () => requireVault().loadAll())
 ipcMain.handle('vault:save', (_e, save: PendingSave) => requireVault().save(save))
 ipcMain.handle('vault:trash', (_e, path: string) => requireVault().trash(path))
+ipcMain.handle('vault:attachment', (_e, name: string, data: Uint8Array) => requireVault().addAttachment(name, data))
+ipcMain.handle('vault:import', (_e, source: string) => requireVault().importFile(source))
+ipcMain.handle('vault:read', async (_e, path: string) => {
+  const abs = requireVault().abs(path)
+  const version = await fileVersion(abs)
+  return { data: await readFile(abs), version }
+})
+ipcMain.handle('vault:open', (_e, path: string) => openFile(requireVault().abs(path)))
+ipcMain.handle('vault:pdf-preview', (_e, path: string, version: string, data: Uint8Array) =>
+  savePdfPreview(requireVault().abs(path), version, data),
+)
+
+/**
+ * Files that open in their own app from a board. Boards and their files can come from other
+ * devices and other people, so anything that could run code, such as .exe, .lnk, .bat or
+ * macro-enabled Office files, is shown in its folder instead of being opened.
+ */
+const OPENABLE = /\.(pdf|docx?|rtf|xlsx?|csv|pptx?|txt|md|png|jpe?g|gif|webp|bmp|heic|heif|tiff?|avif|mp4|m4v|mov|webm|mkv|avi|wmv|3gp|mp3|m4a|wav|aac|flac)$/i
+
+async function openFile(abs: string): Promise<string> {
+  if (!OPENABLE.test(abs)) {
+    shell.showItemInFolder(abs)
+    return `Files of this type aren't opened from boards, so its folder was opened instead.`
+  }
+  const error = await shell.openPath(abs)
+  return error && `Couldn't open it: ${error}`
+}
 // Synchronous save used while the window unloads, when async replies can no longer arrive.
 // Each note is saved on its own, so one failure doesn't cost the others their edits.
 ipcMain.on('vault:save-now', (event, saves: PendingSave[]) => {
@@ -127,7 +163,10 @@ function createWindow(): void {
   else win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
+registerScheme()
+
 app.whenReady().then(async () => {
+  handleScheme((rel) => vault?.abs(rel) ?? null)
   Menu.setApplicationMenu(buildMenu())
   const root = await savedRoot()
   if (root) openVault(root)
