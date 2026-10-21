@@ -31,6 +31,7 @@ The easiest way for Claude to change boards is the MCP server (see the README); 
 | Group | `"type": "group"`, `"label"` |
 | Column | A group with `"btColumn": true` and `"btCards": [card ids, top to bottom]` |
 | Color swatch | A text card with `"btSwatch": true`, `"color": "#c8102e"`, and `"text": "#C8102E\nGuards Red"` (hex code, then an optional name) |
+| Circle | A text card with `"styleAttributes": { "shape": "circle" }`, the way the Advanced Canvas plugin for Obsidian marks shapes. Keep its width and height equal |
 
 Every card has `id`, `type`, `x`, `y`, `width` and `height`, and may have `color`: `"1"` to `"6"` (red, orange, yellow, green, cyan, purple) or a hex code.
 

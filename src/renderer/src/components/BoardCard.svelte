@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { boardName, colorOf, kindOf, OFFICE_TYPES, swatchOf, type CanvasNode, type Side } from '../lib/board'
+  import { boardName, colorOf, DOC_TYPES, isCircle, kindOf, swatchOf, type CanvasNode, type Side } from '../lib/board'
   import { boardIconOf } from '../lib/boardIcons'
   import { drawDiagram, renderText } from '../lib/markdown'
   import { theme } from '../lib/theme.svelte'
@@ -8,6 +8,7 @@
   import BoardTile from './BoardTile.svelte'
   import { boards } from '../lib/boards.svelte'
   import { plainLine } from '../lib/note'
+  import { isLight } from '../lib/palette'
   import { store } from '../lib/store.svelte'
   import Icon from './Icon.svelte'
 
@@ -50,6 +51,12 @@
 
   const kind = $derived(kindOf(node))
   const color = $derived(colorOf(node.color))
+  /**
+   * Cards filled with their color, exactly as picked, with dark or light text to suit it. Images,
+   * videos, PDFs and board tiles cover their card, so they show the color as a border instead.
+   */
+  const filled = $derived(!!color && ['text', 'note', 'link', 'file', 'group', 'column'].includes(kindOf(node)))
+  const lightFill = $derived(filled && isLight(color!))
   const note = $derived(kind === 'note' && node.file ? store.noteByPath(node.file) : null)
   const linked = $derived(kind === 'board' && node.file ? boards.get(node.file) : null)
 
@@ -97,8 +104,33 @@
   )
 
   const fileName = $derived(node.file ? node.file.slice(node.file.lastIndexOf('/') + 1) : '')
-  const office = $derived(OFFICE_TYPES.find((t) => t.pattern.test(fileName)))
+  const docType = $derived(DOC_TYPES.find((t) => t.pattern.test(fileName)))
   const extension = $derived(fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.') + 1).toUpperCase() : '')
+  const plainName = $derived(fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName)
+
+  // A document's title and first lines, read from inside the file by the main process.
+  let docTitle = $state<string | undefined>()
+  let docLines = $state<string[]>([])
+  $effect(() => {
+    const path = (kind === 'file' || kind === 'pdf') && node.file ? node.file : null
+    docTitle = undefined
+    docLines = []
+    if (!path) return
+    let current = true
+    window.bt.vault
+      .docInfo(path)
+      .then((info) => {
+        if (!current) return
+        docTitle = info.title
+        docLines = info.lines
+      })
+      .catch(() => {})
+    return () => {
+      current = false
+    }
+  })
+  /** Short cards made before documents became pages show a single line. */
+  const compactDoc = $derived(node.height < 140)
 
   // A PDF's preview is drawn the first time its card is shown on this device. If that fails, for
   // example because the board synced before the PDF did, it's tried again a few times.
@@ -270,6 +302,10 @@
   class:drop-target={dropTarget}
   class:link-target={linkTarget}
   class:colored={color}
+  class:filled
+  class:circle={isCircle(node)}
+  class:light-fill={lightFill}
+  class:dark-fill={filled && !lightFill}
   class:missing={(kind === 'note' && !note) || (kind === 'board' && !linked) || broken}
   style:left="{node.x}px"
   style:top="{node.y}px"
@@ -314,12 +350,18 @@
       </div>
     {/if}
   {:else if kind === 'pdf' && node.file}
-    {#if pdfState === 'failed'}
-      <div class="card-body card-placeholder"><Icon name="file" /> {fileName}</div>
-    {:else}
-      <img class="pdf-page" src={fileUrl('thumb', node.file, 800)} alt={fileName} draggable="false" onerror={onPdfMissing} />
-    {/if}
-    <div class="card-caption">{fileName}</div>
+    <!-- A page with a red band: the PDF's title, then its first page. -->
+    <div class="doc-band">
+      <span class="doc-badge">PDF</span>
+      <span class="doc-band-title" title={fileName}>{docTitle ?? plainName}</span>
+    </div>
+    <div class="pdf-frame">
+      {#if pdfState === 'failed'}
+        <div class="card-body card-placeholder"><Icon name="file" /> {fileName}</div>
+      {:else}
+        <img class="pdf-page" src={fileUrl('thumb', node.file, 800)} alt={fileName} draggable="false" onerror={onPdfMissing} />
+      {/if}
+    </div>
   {:else if kind === 'video' && node.file}
     <!-- svelte-ignore a11y_media_has_caption -->
     <video
@@ -348,8 +390,13 @@
       {/if}
     </div>
   {:else if kind === 'board'}
-    <!-- Like Milanote: the board's icon on a tile, with its name underneath. -->
-    <BoardTile icon={boardIconOf(linked?.data)} size={Math.max(24, Math.min(node.width, node.height - 40) * 0.4)} missing={!linked} />
+    <!-- Like Milanote: the board's icon on a tile, with its name underneath. A color picked for
+         this card recolors its tile; without one, the tile has the board's own color. -->
+    <BoardTile
+      icon={color ? { ...boardIconOf(linked?.data), color } : boardIconOf(linked?.data)}
+      size={Math.max(24, Math.min(node.width, node.height - 40) * 0.4)}
+      missing={!linked}
+    />
     <div class="board-name" title={linked ? `${linked.data.nodes.length} cards` : 'Missing board'}>
       {boardName(node.file ?? '')}
     </div>
@@ -359,12 +406,17 @@
       <p class="card-url">{node.url}</p>
     </div>
   {:else if kind === 'file'}
-    <div class="card-body card-board-body">
-      <span class="file-badge file-{office?.app ?? 'other'}">{office?.letter ?? (extension.slice(0, 4) || '?')}</span>
-      <div>
-        <div class="card-title">{fileName}</div>
-        <p>{office?.label ?? (extension ? `${extension} file` : 'File')}</p>
+    <!-- A page in the app's color: its title, its first lines, and the file's name. -->
+    <div class="doc doc-{docType?.app ?? 'other'}" class:compact={compactDoc}>
+      <div class="doc-band">
+        <span class="doc-badge">{docType?.letter ?? (extension.slice(0, 4) || '?')}</span>
+        <span class="doc-type">{docType?.label ?? (extension ? `${extension} file` : 'File')}</span>
       </div>
+      <div class="doc-body">
+        <div class="doc-title">{docTitle ?? plainName}</div>
+        {#each docLines as line, i (i)}<p>{line}</p>{/each}
+      </div>
+      <div class="doc-file" title={fileName}>{fileName}</div>
     </div>
   {:else if labelled}
     {#if editing}

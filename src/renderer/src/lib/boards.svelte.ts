@@ -279,6 +279,18 @@ class BoardsStore {
     this.step(this.redoStack, this.undoStack)
   }
 
+  /**
+   * Takes back everything since the last checkpoint, with no redo step: for a drag that turned out
+   * not to be a move, such as a note card dropped on a tag in the sidebar.
+   */
+  revert(): void {
+    const board = this.board
+    const previous = board && this.undoStack.get(key(board.path))?.pop()
+    if (!board || !previous) return
+    board.data = previous
+    this.scheduleSave(board.path)
+  }
+
   private step(from: Map<string, CanvasData[]>, to: Map<string, CanvasData[]>): void {
     const board = this.board
     const previous = board && from.get(key(board.path))?.pop()

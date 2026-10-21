@@ -67,12 +67,18 @@ export const PRESET_COLORS: Record<string, string> = {
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif|tiff?)$/i
 const VIDEO_EXT = /\.(mp4|m4v|mov|webm|mkv|avi|wmv|3gp)$/i
 
-/** Office files, which get a card with the app's letter and color. */
-export const OFFICE_TYPES: { pattern: RegExp; app: 'word' | 'excel' | 'powerpoint'; letter: string; label: string }[] = [
+/** Documents, which get a page-shaped card in the app's color, with its letter. */
+export const DOC_TYPES: { pattern: RegExp; app: 'word' | 'excel' | 'powerpoint' | 'text'; letter: string; label: string }[] = [
   { pattern: /\.(docx?|docm|rtf)$/i, app: 'word', letter: 'W', label: 'Word document' },
   { pattern: /\.(xlsx?|xlsm|csv)$/i, app: 'excel', letter: 'X', label: 'Excel workbook' },
   { pattern: /\.(pptx?|pptm)$/i, app: 'powerpoint', letter: 'P', label: 'PowerPoint presentation' },
+  { pattern: /\.(txt|log|text)$/i, app: 'text', letter: 'TXT', label: 'Text file' },
 ]
+
+/** A new document card: a page, taller than wide. */
+export const DOC_SIZE = { width: 220, height: 290 }
+/** A new PDF card: its band with the title, then a letter-size page. */
+export const PDF_SIZE = { width: 240, height: 340 }
 
 export const emptyBoard = (): CanvasData => ({ nodes: [], edges: [] })
 
@@ -129,7 +135,16 @@ export function setSwatch(node: CanvasNode, hex: string, name: string): void {
 /** Cards whose content has a fixed shape (images, videos, PDF pages) keep it when resized. */
 export function keepsShape(node: CanvasNode): boolean {
   const kind = kindOf(node)
-  return kind === 'image' || kind === 'video' || kind === 'pdf'
+  return kind === 'image' || kind === 'video' || kind === 'pdf' || isCircle(node)
+}
+
+/**
+ * A circle: a text card marked the way Obsidian's Advanced Canvas plugin marks shapes, so it shows
+ * as a circle there too (and as a plain text card without the plugin).
+ */
+export function isCircle(node: CanvasNode): boolean {
+  const style = node.styleAttributes
+  return node.type === 'text' && typeof style === 'object' && style !== null && (style as Record<string, unknown>).shape === 'circle'
 }
 
 export function colorOf(color: string | undefined): string | null {

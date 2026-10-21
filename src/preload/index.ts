@@ -27,6 +27,7 @@ const vault: VaultApi = {
   readFile: (path) => ipcRenderer.invoke('vault:read', path),
   openFile: (path) => ipcRenderer.invoke('vault:open', path),
   savePdfPreview: (path, version, data) => ipcRenderer.invoke('vault:pdf-preview', path, version, data),
+  docInfo: (path) => ipcRenderer.invoke('vault:doc-info', path),
   onEvent: (callback) => listen('vault:event', callback),
 }
 

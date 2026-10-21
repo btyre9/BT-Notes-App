@@ -438,6 +438,12 @@ class NotesStore {
     return (list[position + 1] ?? list[position - 1])?.id ?? null
   }
 
+  /** Tags the note stored at a path, for a note card on a board. */
+  tagNoteAt(path: string, tag: string): void {
+    const note = this.noteByPath(path)
+    if (note) this.tagNote(note.id, tag)
+  }
+
   tagNote(id: string, tag: string): void {
     const note = this.notes.get(id)
     if (note) this.edit(id, addTag(note.body, tag))
@@ -584,5 +590,8 @@ class NotesStore {
     }
   }
 }
+
+/** The drag data type of a note dragged from the note list, which tags in the sidebar accept. */
+export const NOTE_DRAG = 'application/x-bt-note'
 
 export const store = new NotesStore()

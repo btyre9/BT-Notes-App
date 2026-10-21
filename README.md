@@ -81,9 +81,10 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | Table, chart or diagram | **Chart** in the toolbar: table, pie, bar or line chart, flowchart, timeline. Double-click the card to change it. Charts are [Mermaid](https://mermaid.js.org) code in a ```` ```mermaid ```` block; a mistake shows what's wrong |
 | Note card | **Note** in the toolbar: pick a note or create one. Double-click the card to open the note beside the board |
 | Images and files | Drop or paste them onto the board, or **Files** in the toolbar. They're copied into `Attachments/` |
-| PDFs | The card shows the first page. Double-click it to read the whole PDF; **Open in its app** opens it in your PDF reader |
+| PDFs | The card is a page with a red band and the PDF's title (from its properties, or the file name), and shows the first page. Double-click it to read the whole PDF; **Open in its app** opens it in your PDF reader |
 | Videos | Press play on the card. Seeking and full screen work from its controls. Double-click opens it in your video player |
-| Word, Excel, PowerPoint and other files | Double-click to open them in their app |
+| Word, Excel, PowerPoint, text and other files | The card is a page in the app's color with the document's title and first lines. Double-click to open it in its app |
+| Circle | The shapes button in the dock. Type in it, color it and connect arrows to it like a text card; it stays round when resized |
 | Color swatch | **Color** in the toolbar. Double-click it to set the color with the color picker, a hex code, or the eyedropper (pick a color from anything on screen, such as a photo on the board), and give it a name |
 | Column | **Column** in the toolbar. Drag cards into it and they stack top to bottom; drag one out and the rest close up. Double-click the column to rename it |
 | Arrow | Hover a card and drag from the dot on one of its sides onto another card. Double-click an arrow to label it; click it to select, color or delete it |
@@ -91,7 +92,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | Board icon | Select a board card and choose **Icon**, or click the icon left of a board's name. Pick a color and an icon, or **Use an image…**. The board's name shows under its card |
 | Move / resize | Drag a card / drag its bottom-right corner. Shift+click selects more than one |
 | Pan / zoom | Drag the background or scroll / **Ctrl+scroll** or pinch. The **%** button fits the board to the window |
-| Color / delete | Select cards, then pick a color or the trash button in the toolbar (or **Delete**) |
+| Color / delete | Select cards or arrows, then pick a color or the trash button in the toolbar (or **Delete**). The rainbow button at the end of the colors opens the full palette: 16 hues in five shades, neutrals, your recent colors, and any color by picker, hex code or eyedropper |
 | Undo / redo | **Ctrl+Z** / **Ctrl+Shift+Z** or **Ctrl+Y** |
 | Rename / trash a board | Click its name in the toolbar / the trash button at the right. Home can't be renamed or trashed |
 
@@ -102,7 +103,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | New note | **Ctrl+N** (**Cmd+N** on Mac), or **+** above the list. On a board, **Ctrl+N** adds a new note card |
 | Search | **Ctrl+Shift+F**, or click the search box |
 | Bold / italic / strikethrough | **Ctrl+B** / **Ctrl+I** / **Ctrl+Shift+X** |
-| Tag a note | Type `#tag` or `#parent/child` anywhere in the note |
+| Tag a note | Type `#tag` or `#parent/child` anywhere in the note, or drag the note onto a tag in the sidebar, from the note list or as a card on a board. Hovering over a closed tag opens its subtags |
 | Task | `- [ ] something`; click the checkbox to mark it done |
 | Due date | `📅 2026-10-21` on a task line, or **Insert → Due date** |
 | All open tasks | **Tasks** in the sidebar |

@@ -13,13 +13,13 @@ BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images
 ## Where things stand (2026-10-21)
 
 - **Built:** phases 0–10 of PLAN.md, the board restyle (floating dock, minimap, zoom controls, hide-sidebar), and inline images in the note editor.
-- **Notes folder:** `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). The user uses BT Notes mostly on the Mac and iPhone, and iCloud+ is their one paid storage service. Don't reopen the storage question; it took a long discussion to settle. The Windows work laptop uses a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, saved as its folder choice (2026-10-21). The user chose it for speed after trying iCloud for Windows the same day, whose sign-in had silently expired for six days. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
+- **Notes folder:** moving to **personal OneDrive** (`OneDrive/BT Notes`), decided by the user on 2026-10-21 after comparing iCloud, Dropbox, Supabase + Backblaze B2 and OneDrive: it gives the same notes on the Mac, the work laptop and the iPhone, phone capture without the Mac, and a web version on Microsoft Graph with no syncing to build, for about $1.99 a month (100 GB). PLAN.md phase 13 is the move; until it's done, the notes are still in `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). Don't reopen the storage question unless the user does. The Windows work laptop uses a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, saved as its folder choice (2026-10-21). The user chose it for speed after trying iCloud for Windows the same day, whose sign-in had silently expired for six days. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
 - **Apple Notes import:** a launchd job (`com.btyre.btnotes.import`) runs `mac/import-apple-notes.ts` every 5 minutes from `~/BT-Notes-App`, moving notes from the Notes folder **Capture** into `Inbox/`. Log: `~/Library/Logs/BT Notes/import.log`. It finds the notes folder through `src/shared/notesRoot.ts`, so it follows the app's folder.
 
 ## Waiting on the user
 
-- In Finder, right-click `BT Notes` in iCloud Drive → **Keep Downloaded**.
-- The phone test (PLAN phase 10 check): capture notes with photos in **Capture** on the iPhone and confirm they reach the Inbox within about 5 minutes.
+- Phase 13's first step: on the corporate network, sign in to OneDrive on the work laptop with a free personal Microsoft account and check that a test file syncs, before subscribing to Microsoft 365 Basic.
+- The phone test (PLAN phase 10 check), if the Apple Notes import is still wanted: capture notes with photos in **Capture** on the iPhone and confirm they reach the Inbox within about 5 minutes. The planned replacement is the iPhone Shortcut (phase 14).
 
 ## Next work the user is weighing
 
@@ -28,6 +28,8 @@ The user wants boards to feel interactive like Milanote, not like a FigJam pictu
 2. **Link cards with previews:** fetch the page title and preview image for `link` cards.
 
 Comments and sharing were noted as gaps but are lower priority.
+
+**Planned 2026-10-21, not started (PLAN.md phases 13–16):** move to personal OneDrive (13), an iPhone Capture Shortcut that saves into `Inbox/` (14), and a web version on Vercel that reads and writes the OneDrive folder through Microsoft Graph (15), with a phone layout (16).
 
 ## Elsewhere
 

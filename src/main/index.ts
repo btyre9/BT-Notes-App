@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { defaultRoots } from '../shared/notesRoot'
 import type { MenuAction, PendingSave } from '../shared/types'
+import { docInfo } from './docInfo'
 import { fileVersion, handleScheme, registerScheme, savePdfPreview } from './files'
 import { Vault } from './vault'
 
@@ -61,6 +62,7 @@ ipcMain.handle('vault:open', (_e, path: string) => openFile(requireVault().abs(p
 ipcMain.handle('vault:pdf-preview', (_e, path: string, version: string, data: Uint8Array) =>
   savePdfPreview(requireVault().abs(path), version, data),
 )
+ipcMain.handle('vault:doc-info', (_e, path: string) => docInfo(requireVault().abs(path)))
 
 /**
  * Files that open in their own app from a board. Boards and their files can come from other

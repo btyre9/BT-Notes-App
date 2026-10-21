@@ -1,5 +1,6 @@
 <script lang="ts">
   import { colorOf } from '../lib/board'
+  import { isLight } from '../lib/palette'
   import { BOARD_ICONS, DEFAULT_BOARD_ICON, type BoardIcon } from '../lib/boardIcons'
 
   /** A board's icon on its tile: an image, or a Lucide icon, white on the board's color. */
@@ -31,7 +32,7 @@
   })
 </script>
 
-<div class="board-tile" class:colored={color} class:missing style:--tile-color={color}>
+<div class="board-tile" class:colored={color} class:light={color && isLight(color)} class:missing style:--tile-color={color}>
   {#if imageUrl && !broken}
     <img src={imageUrl} alt="" draggable="false" onerror={() => (broken = true)} />
   {:else}

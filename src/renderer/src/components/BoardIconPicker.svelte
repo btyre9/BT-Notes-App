@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { PRESET_COLORS } from '../lib/board'
   import { BOARD_ICONS, DEFAULT_BOARD_ICON, type BoardIcon } from '../lib/boardIcons'
+  import ColorPalette from './ColorPalette.svelte'
 
   /** Chooses a board's icon: a color for its tile, one of the icons, or an image. */
   let {
@@ -29,23 +29,7 @@
 
 <div class="picker icon-picker" role="dialog" aria-label="Board icon">
   <div class="icon-picker-colors" role="group" aria-label="Tile color">
-    <button
-      class="swatch swatch-none"
-      class:chosen={!icon.color}
-      title="No color"
-      aria-label="No color"
-      onclick={() => onchange({ ...icon, color: undefined })}
-    ></button>
-    {#each Object.entries(PRESET_COLORS) as [id, color] (id)}
-      <button
-        class="swatch"
-        class:chosen={icon.color === id}
-        style:background={color}
-        title="Color {id}"
-        aria-label="Color {id}"
-        onclick={() => onchange({ ...icon, color: id })}
-      ></button>
-    {/each}
+    <ColorPalette value={icon.color ?? null} onpick={(color) => onchange({ ...icon, color: color ?? undefined })} />
   </div>
   <div class="icon-grid" role="group" aria-label="Icon">
     {#each Object.entries(BOARD_ICONS) as [name, nodes] (name)}

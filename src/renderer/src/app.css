@@ -1006,11 +1006,12 @@ input.board-title:focus {
   box-shadow: var(--board-shadow);
   touch-action: none;
 }
+/* Colored cards show their exact color here too; others are a soft gray. */
 .minimap-card {
-  fill: color-mix(in srgb, var(--node-color, var(--text-muted)) 60%, transparent);
+  fill: var(--node-color, color-mix(in srgb, var(--text-muted) 60%, transparent));
 }
 .minimap-group {
-  fill: color-mix(in srgb, var(--node-color, var(--text-faint)) 30%, transparent);
+  fill: var(--node-color, color-mix(in srgb, var(--text-faint) 30%, transparent));
 }
 .minimap-screen {
   fill: var(--accent-soft);
@@ -1031,7 +1032,33 @@ input.board-title:focus {
 }
 .card.colored {
   border-color: var(--card-color);
-  background: color-mix(in srgb, var(--card-color) 10%, var(--card-bg));
+}
+/* A colored card is filled with exactly the color picked. Its text and lines switch to dark or
+   light to stay readable on it; cards inside a column are separate cards and keep their own. */
+.card.filled,
+.card-group.filled,
+.card-column.filled {
+  background: var(--card-color);
+}
+.card.light-fill {
+  --text: #1d1d1f;
+  --text-muted: rgba(0, 0, 0, 0.64);
+  --text-faint: rgba(0, 0, 0, 0.42);
+  --list-border: rgba(0, 0, 0, 0.16);
+  --card-border: rgba(0, 0, 0, 0.16);
+  --code-bg: rgba(0, 0, 0, 0.08);
+}
+.card.dark-fill {
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.82);
+  --text-faint: rgba(255, 255, 255, 0.56);
+  --list-border: rgba(255, 255, 255, 0.28);
+  --card-border: rgba(255, 255, 255, 0.28);
+  --code-bg: rgba(255, 255, 255, 0.16);
+}
+.card.filled .card-md a {
+  color: inherit;
+  text-decoration: underline;
 }
 .card.selected {
   outline: calc(2px / var(--zoom)) solid var(--accent);
@@ -1380,8 +1407,79 @@ input.arrow-label {
 }
 
 /* Documents: PDFs, videos, Office and other files */
+/* Documents and PDFs are pages: a folded top corner and a band in the app's color. */
+.card-file,
 .card-pdf {
+  border-top-right-radius: 0;
+}
+.card-file::after,
+.card-pdf::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: -1px;
+  right: -1px;
+  width: 20px;
+  height: 20px;
+  background: linear-gradient(225deg, var(--board-bg) 50%, rgba(0, 0, 0, 0.25) 50%);
+  pointer-events: none;
+}
+.card-pdf {
+  display: flex;
+  flex-direction: column;
   background: #fff;
+}
+.doc-band {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 24px 0 10px;
+  font-size: 12px;
+  color: #fff;
+  background: var(--doc-color, #57534e);
+}
+.card-pdf .doc-band {
+  --doc-color: #d32f2f;
+}
+.doc-word {
+  --doc-color: #2b579a;
+}
+.doc-excel {
+  --doc-color: #217346;
+}
+.doc-powerpoint {
+  --doc-color: #c43e1c;
+}
+.doc-text {
+  --doc-color: #6b7280;
+}
+.doc-badge {
+  flex: none;
+  padding: 1px 5px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+}
+.doc-type,
+.doc-band-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-type {
+  opacity: 0.9;
+}
+.doc-band-title {
+  font-weight: 600;
+}
+.pdf-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 .card-pdf .pdf-page {
   position: absolute;
@@ -1391,18 +1489,55 @@ input.arrow-label {
   object-fit: cover;
   object-position: top;
 }
-.card-caption {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 6px 10px;
+.doc {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.doc-body {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 14px 6px;
+  overflow: hidden;
+}
+.doc-title {
+  margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.doc-body p {
+  margin: 0 0 4px;
   font-size: 12px;
-  color: #fff;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
-  white-space: nowrap;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.doc-file {
+  flex: none;
+  padding: 6px 14px 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--list-border);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Short cards, made before documents were pages: the band and the title only. */
+.doc.compact .doc-body p,
+.doc.compact .doc-file {
+  display: none;
+}
+.doc.compact .doc-body {
+  padding: 6px 14px;
+}
+.doc.compact .doc-title {
+  font-size: 14px;
+  -webkit-line-clamp: 1;
 }
 .card-video {
   background: #000;
@@ -1426,30 +1561,28 @@ input.arrow-label {
   background: rgba(0, 0, 0, 0.7);
   border-radius: 6px;
 }
-.file-badge {
-  flex: none;
-  display: grid;
-  place-items: center;
-  min-width: 34px;
-  height: 40px;
-  padding: 0 4px;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
-  background: var(--text-muted);
+/* Circles: text cards marked as a circle shape. */
+.card.circle {
+  border-radius: 50%;
 }
-.file-word {
-  background: #2b579a;
-  font-size: 18px;
+.card.circle .card-md {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  padding: 14%;
+  text-align: center;
 }
-.file-excel {
-  background: #217346;
-  font-size: 18px;
+.card.circle .card-editor {
+  padding: 30% 16% 0;
+  text-align: center;
 }
-.file-powerpoint {
-  background: #c43e1c;
-  font-size: 18px;
+/* The corner of the square around a circle is outside it, so its resize handle moves in. */
+.card.circle > .resize-handle {
+  right: 14%;
+  bottom: 14%;
+  border-radius: 3px;
 }
 
 /* Viewer for PDFs and full-size images */
@@ -1817,4 +1950,96 @@ input.arrow-label {
 .swatch-hex-input:focus,
 .swatch-name-input:focus {
   border-color: var(--accent);
+}
+
+/* The full color palette */
+.swatch-more {
+  background: conic-gradient(#ef4444, #f59e0b, #eab308, #22c55e, #06b6d4, #3b82f6, #8b5cf6, #ec4899, #ef4444);
+}
+.palette-anchor {
+  width: auto;
+  right: 0;
+  padding: 10px;
+}
+.palette {
+  display: grid;
+  gap: 8px;
+}
+.palette-grid {
+  display: flex;
+  gap: 3px;
+}
+.palette-column {
+  display: grid;
+  gap: 3px;
+}
+.palette-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.palette-label {
+  margin-right: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.palette-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+.palette-color:hover {
+  transform: scale(1.2);
+}
+.palette-color.chosen {
+  box-shadow: 0 0 0 2px var(--editor-bg), 0 0 0 4px var(--accent);
+}
+.palette-custom {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--list-border);
+}
+.palette-custom input[type='color'] {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.palette-hex {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  background: var(--editor-bg);
+  border: 1px solid var(--list-border);
+  border-radius: 5px;
+  outline: none;
+}
+.palette-hex:focus {
+  border-color: var(--accent);
+}
+/* A light tile gets a dark icon, so the icon stays visible. */
+.board-tile.colored.light {
+  color: rgba(0, 0, 0, 0.7);
+}
+.sidebar-tile .board-tile.colored.light {
+  color: rgba(0, 0, 0, 0.7);
+}
+
+/* A tag a note is being dragged onto. */
+.nav-item.drop-target {
+  background: var(--accent);
+  color: #fff;
+}
+.nav-item.drop-target .icon,
+.nav-item.drop-target .count {
+  color: #fff;
 }

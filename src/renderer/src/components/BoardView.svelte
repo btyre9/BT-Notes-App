@@ -9,6 +9,7 @@
     columnAt,
     columnCards,
     contains,
+    DOC_SIZE,
     dropIntoColumn,
     duplicate,
     edgeShape,
@@ -16,12 +17,14 @@
     freeSpot,
     HOME_BOARD,
     intersects,
+    isCircle,
     isColumn,
     keepsShape,
     kindOf,
     layoutColumns,
     nearestSide,
     newId,
+    PDF_SIZE,
     PRESET_COLORS,
     removeNodes,
     setSwatch,
@@ -35,6 +38,7 @@
   import { boardIconOf, type BoardIcon } from '../lib/boardIcons'
   import BoardCard from './BoardCard.svelte'
   import BoardIconPicker from './BoardIconPicker.svelte'
+  import ColorPalette from './ColorPalette.svelte'
   import BoardTile from './BoardTile.svelte'
   import CardPicker from './CardPicker.svelte'
   import Icon from './Icon.svelte'
@@ -83,7 +87,7 @@
   let width = $state(0)
   let height = $state(0)
   let editingId = $state<string | null>(null)
-  let picker = $state<'note' | 'board' | 'chart' | null>(null)
+  let picker = $state<'note' | 'board' | 'chart' | 'shape' | null>(null)
   /** A text card that was just edited or added, which grows to fit its rendered text. */
   let autosizeId = $state<string | null>(null)
   /** The board whose icon is being chosen, from its card or from its own title. */
@@ -185,6 +189,7 @@
     editingId = null
     picker = null
     iconFor = null
+    paletteOpen = false
   })
 
   // A board card's icon picker belongs to that card; selecting something else closes it.
@@ -290,6 +295,12 @@
     addBoardCard(boards.create(name))
   }
 
+  /** A circle to type in, color and connect, like a text card. */
+  function addCircle() {
+    const node = addNode({ type: 'text', text: '', styleAttributes: { shape: 'circle' }, width: 160, height: 160 })
+    editingId = node.id
+  }
+
   function addColumn() {
     const node = addNode({ type: 'group', label: '', btColumn: true, btCards: [], width: 300, height: COLUMN.header + COLUMN.empty })
     editingId = node.id
@@ -343,8 +354,8 @@
       const size = kind === 'image' ? await imageSize(file) : await videoSize(path)
       return { width: IMAGE_WIDTH, height: Math.round((IMAGE_WIDTH * size.height) / size.width) }
     }
-    if (kind === 'pdf') return { width: 240, height: 311 } // A letter-size page.
-    return { width: 280, height: 76 }
+    if (kind === 'pdf') return PDF_SIZE
+    return DOC_SIZE
   }
 
   /** Copies files into Attachments/ and lays their cards out in a row starting at a point. */
@@ -421,7 +432,8 @@
       })
       return
     }
-    if (!text.trim()) {
+    // An empty text card is removed; an empty circle is still a shape.
+    if (!text.trim() && !isCircle(node)) {
       boards.update((data) => removeNodes(data, new Set([node.id])))
       boards.selection = boards.selection.filter((id) => id !== node.id)
       return
@@ -435,6 +447,8 @@
   function fitText(node: CanvasNode, needed: number) {
     if (autosizeId !== node.id) return
     autosizeId = null
+    // A circle stays round; it's resized by hand.
+    if (isCircle(node)) return
     if (needed > node.height) {
       boards.mutate((data) => {
         node.height = Math.ceil(needed)
@@ -444,6 +458,16 @@
   }
 
   /** The board a single selected board card links to, whose icon the toolbar can change. */
+  /** Whether the full color palette is open, from "More colors" in the toolbar. */
+  let paletteOpen = $state(false)
+
+  /** The color the selected cards and arrows share, if they all have the same one. */
+  const selectionColor = $derived.by(() => {
+    const items = [...nodes, ...(board?.data.edges ?? [])].filter((item) => selected.has(item.id))
+    const colors = new Set(items.map((item) => colorOf(item.color)?.toLowerCase() ?? null))
+    return colors.size === 1 ? [...colors][0] : undefined
+  })
+
   const selectedBoard = $derived.by(() => {
     if (selected.size !== 1) return null
     const node = nodes.find((n) => selected.has(n.id))
@@ -626,6 +650,8 @@
       gesture = null
       connecting = null
       dropColumnId = null
+      tagUnder?.classList.remove('drop-target')
+      tagUnder = null
       return
     }
     const dx = event.clientX - gesture.startX
@@ -660,6 +686,7 @@
           o.node.y = Math.round(o.y + dy / view.zoom)
         }
       })
+      trackTagUnder(event, g)
       if (g.loose.length && board) {
         const columns = new Set(g.origins.filter((o) => isColumn(o.node)).map((o) => o.node.id))
         dropColumnId = columnAt(board.data, toBoard(event.clientX, event.clientY), columns)?.id ?? null
@@ -675,8 +702,37 @@
     }
   }
 
+  /**
+   * The sidebar tag under the pointer while note cards are dragged, if any. Dropped there, the
+   * notes get the tag and the cards go back to where they were.
+   */
+  let tagUnder: HTMLElement | null = null
+
+  function noteCardsIn(g: Extract<Gesture, { kind: 'move' }>): string[] {
+    return g.origins.flatMap((o) => (kindOf(o.node) === 'note' && o.node.file ? [o.node.file] : []))
+  }
+
+  function trackTagUnder(event: PointerEvent, g: Extract<Gesture, { kind: 'move' }>) {
+    const el = noteCardsIn(g).length ? document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-tag]') : null
+    if (el === tagUnder) return
+    tagUnder?.classList.remove('drop-target')
+    tagUnder = el ?? null
+    tagUnder?.classList.add('drop-target')
+  }
+
   function onPointerUp(event: PointerEvent) {
     const g = gesture
+    // Note cards dropped on a sidebar tag: tag the notes and put the cards back.
+    if (g?.kind === 'move' && g.moved && tagUnder?.dataset.tag) {
+      const tag = tagUnder.dataset.tag
+      for (const path of noteCardsIn(g)) store.tagNoteAt(path, tag)
+      boards.revert()
+      tagUnder.classList.remove('drop-target')
+      tagUnder = null
+      gesture = null
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId)
+      return
+    }
     // A click on one of several selected cards selects just that card.
     if (g?.kind === 'move' && !g.moved && g.collapseTo) boards.selection = [g.clickedId]
     // Dropped cards go into the column under the pointer, or out of the one they were in.
@@ -739,6 +795,11 @@
 
   function onKeyDown(event: KeyboardEvent) {
     if (iconFor) return
+    if (paletteOpen && event.key === 'Escape') {
+      paletteOpen = false
+      event.preventDefault()
+      return
+    }
     if (viewing && event.key === 'Escape') {
       viewing = null
       event.preventDefault()
@@ -799,8 +860,9 @@
   onkeydown={onKeyDown}
   onpaste={onPaste}
   onpointerdown={(e) => {
-    // A click anywhere else closes the icon picker, so the board's keys work again.
+    // A click anywhere else closes the icon picker or the palette, so the board's keys work again.
     if (iconFor && !(e.target as Element).closest('.icon-picker-anchor, .icon-toggle')) iconFor = null
+    if (paletteOpen && !(e.target as Element).closest('.palette-anchor, .palette-toggle')) paletteOpen = false
   }}
 />
 
@@ -855,6 +917,26 @@
         {#each Object.entries(PRESET_COLORS) as [id, color] (id)}
           <button class="swatch" style:background={color} title="Color {id}" aria-label="Color {id}" onclick={() => setColor(id)}></button>
         {/each}
+        <div class="insert">
+          <button
+            class="swatch swatch-more palette-toggle"
+            title="More colors"
+            aria-label="More colors"
+            aria-expanded={paletteOpen}
+            onclick={() => (paletteOpen = !paletteOpen)}
+          ></button>
+          {#if paletteOpen}
+            <div class="picker palette-anchor">
+              <ColorPalette
+                value={selectionColor}
+                onpick={(color) => {
+                  setColor(color)
+                  paletteOpen = false
+                }}
+              />
+            </div>
+          {/if}
+        </div>
       </div>
       {#if selectedBoard}
         <div class="insert">
@@ -1014,6 +1096,22 @@
       <Icon name="image" />
     </button>
     <button class="dock-button" title="Add a color swatch" onclick={addSwatch}><Icon name="color" /></button>
+    <div class="insert">
+      <button class="dock-button" title="Add a shape" aria-expanded={picker === 'shape'} onclick={() => (picker = picker === 'shape' ? null : 'shape')}>
+        <Icon name="shapes" />
+      </button>
+      {#if picker === 'shape'}
+        <div class="menu chart-menu" role="menu">
+          <button
+            role="menuitem"
+            onclick={() => {
+              picker = null
+              addCircle()
+            }}>Circle</button
+          >
+        </div>
+      {/if}
+    </div>
     <button class="dock-button" title="Add a column: cards dragged into it stack top to bottom" onclick={addColumn}><Icon name="column" /></button>
     <input class="hidden-input" type="file" multiple bind:this={imageInput} onchange={chooseFiles} />
   </div>

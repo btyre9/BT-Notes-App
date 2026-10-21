@@ -37,6 +37,8 @@ export interface VaultApi {
   openFile(path: string): Promise<string>
   /** Stores the first-page preview of a PDF, which the window draws, for the version it read. */
   savePdfPreview(path: string, version: string, data: Uint8Array): Promise<void>
+  /** A Word, PowerPoint, Excel, text or PDF file's title, if it has one, and its first lines. */
+  docInfo(path: string): Promise<{ title?: string; lines: string[] }>
   onEvent(callback: (event: VaultEvent) => void): () => void
 }
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store } from '../lib/store.svelte'
+  import { NOTE_DRAG } from '../lib/store.svelte'
   import Icon from './Icon.svelte'
 
   // Only the first part of a long list is rendered; more is added while scrolling.
@@ -57,7 +58,17 @@
   </header>
   <div class="list-scroll" onscroll={onScroll}>
     {#each store.visible.slice(0, limit) as note (note.id)}
-      <button class="list-item" class:selected={note.id === store.selectedId} onclick={() => store.select(note.id)}>
+      <button
+        class="list-item"
+        class:selected={note.id === store.selectedId}
+        onclick={() => store.select(note.id)}
+        draggable="true"
+        ondragstart={(e) => {
+          // Dropped on a tag in the sidebar, the note gets that tag.
+          e.dataTransfer?.setData(NOTE_DRAG, note.id)
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copy'
+        }}
+      >
         <span class="item-title">
           {#if note.pinned}<span class="pin-mark"><Icon name="pin" /></span>{/if}
           {note.title || 'Untitled'}

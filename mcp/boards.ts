@@ -11,6 +11,8 @@ import {
   BOARD_EXT,
   BOARDS_DIR,
   colorOf,
+  DOC_SIZE,
+  PDF_SIZE,
   columnCards,
   emptyBoard,
   facingSides,
@@ -304,7 +306,7 @@ async function makeCard(folder: NotesFolder, data: CanvasData, spec: NewCard): P
         return { ...base, type: 'file', file, width: 320, height: Math.round((320 * size.height) / size.width) }
       }
       const kind = kindOf({ ...base, type: 'file', file, width: 0, height: 0 })
-      const size = kind === 'pdf' ? { width: 240, height: 311 } : kind === 'video' ? { width: 320, height: 180 } : { width: 280, height: 76 }
+      const size = kind === 'pdf' ? PDF_SIZE : kind === 'video' ? { width: 320, height: 180 } : DOC_SIZE
       return { ...base, type: 'file', file, ...size }
     }
     case 'link':
