@@ -13,7 +13,7 @@ BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images
 ## Where things stand (2026-10-21)
 
 - **Built:** phases 0–10 of PLAN.md, the board restyle (floating dock, minimap, zoom controls, hide-sidebar), and inline images in the note editor.
-- **Notes folder:** `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). The user uses BT Notes mostly on the Mac and iPhone, and iCloud+ is their one paid storage service. Don't reopen the storage question; it took a long discussion to settle. The Windows work laptop is meant to use a separate work folder in the company OneDrive (File → Change Notes Folder). The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
+- **Notes folder:** `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). The user uses BT Notes mostly on the Mac and iPhone, and iCloud+ is their one paid storage service. Don't reopen the storage question; it took a long discussion to settle. The Windows work laptop uses a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, saved as its folder choice (2026-10-21). The user chose it for speed after trying iCloud for Windows the same day, whose sign-in had silently expired for six days. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
 - **Apple Notes import:** a launchd job (`com.btyre.btnotes.import`) runs `mac/import-apple-notes.ts` every 5 minutes from `~/BT-Notes-App`, moving notes from the Notes folder **Capture** into `Inbox/`. Log: `~/Library/Logs/BT Notes/import.log`. It finds the notes folder through `src/shared/notesRoot.ts`, so it follows the app's folder.
 
 ## Waiting on the user

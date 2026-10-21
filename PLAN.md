@@ -9,7 +9,7 @@ A visual notes app that works like Storyflow. It opens to boards of notes, image
 | Storage | Plain files in `iCloud Drive/BT Notes/`: notes as `.md`, boards as `.canvas`, images, videos and documents as themselves | Readable by any app, no lock-in |
 | Sync (Mac, iPhone) | iCloud Drive syncs the folder; the app only reads and writes local files | BT Notes is used mostly on the Mac and iPhone, and iCloud+ (2 TB) is already paid for, so there's no second storage bill. Moved from Dropbox 2026-10-20: the free 2 GB couldn't hold the images and documents. |
 | Sync (iPhone) | The iPhone app reads the folder from iCloud Drive | It's on the phone already; no extra sign-in |
-| Work notes | A separate folder in the company OneDrive, opened on the work laptop with **File → Change Notes Folder…** | iCloud Drive works poorly on the Windows work laptop, and work material belongs on work storage. A Personal/Work folder switcher on the Mac can come later, if company policy allows the work OneDrive there. |
+| Work laptop | A separate work folder, `OneDrive - Porsche Cars North America\BT Notes`, chosen with **File → Change Notes Folder…** (set up 2026-10-21) | Speed: OneDrive is built into Windows and syncs in seconds, on the corporate network too. iCloud for Windows was tried the same day: its sign-in had silently expired for six days (Oct 15–21), it's slow to show changes, and the corporate network seems to block it. Work notes also belong on work storage. |
 | Layout | Boards first. The app opens to a **Home** board; boards hold notes, images, files and other boards | Visual learner. Works like Storyflow and Milanote. |
 | Board format | JSON Canvas (`.canvas`), the open format Obsidian created, plus a column marker on groups | Obsidian can open the same boards, and Claude can write them directly |
 | Tables, charts, diagrams | Markdown tables and Mermaid code inside text cards | Plain text that Claude writes well and Obsidian also draws |
@@ -189,7 +189,7 @@ Each phase ends with a check that has to pass before the next one starts.
 
 ## Risks to check early
 
-- **Work laptop.** iCloud Drive works poorly on Windows, so the laptop uses its own work folder instead of the personal one. Company policy may also block a personal account there, or the work OneDrive on the Mac.
+- **Work laptop.** The laptop has its own work folder in the company OneDrive, so its notes are separate from the personal iCloud ones. Opening the work OneDrive on the Mac or iPhone depends on company policy.
 - **Online-only files.** With "Optimize Mac Storage" on, iCloud Drive can keep files in the cloud until they're opened, which makes them slow to open the first time and may hide changes from the app.
   - Fix: right-click `BT Notes` in Finder and choose **Keep Downloaded**, and fall back to checking for changes on a timer.
 - **Conflicting edits.** When the same file is edited on two devices before they sync, the sync service keeps both versions as separate files. The app should detect these copies and offer to merge them.
