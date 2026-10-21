@@ -13,7 +13,8 @@
     "test": "vitest run",
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:mac": "electron-vite build && electron-builder --mac",
-    "mcp": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mcp/server.ts"
+    "mcp": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mcp/server.ts",
+    "import-notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/import-apple-notes.ts"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.4",

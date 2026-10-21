@@ -166,11 +166,13 @@ Each phase ends with a check that has to pass before the next one starts.
    - A short guide to the board format in the project, so Claude Code builds valid boards.
    - A local MCP server for the Claude desktop app: list boards, read a board, add cards, columns and arrows.
    - *Check:* "make a mood board from these images" produces a board that opens correctly, from both Claude Code and the Claude desktop app. ✅ Over MCP from a test client: images, swatches, a column, a chart and an arrow, opened in the app. ⏳ From Claude Code and the Claude desktop app once the server is added to them.
-9. **Mac importer test.**
-   - A script on the Mac reads one note (text and an image) from the Notes folder **Capture**.
-   - It writes the note to `Inbox/` as Markdown.
-   - It deletes the note from Apple Notes only after the file is written.
-   - *Check:* the note appears in `Dropbox\BT Notes\Inbox` on Windows with its image.
+9. **Mac importer test.** Built and tested on the Mac, 2026-10-20: `npm run import-notes` (code in `mac/`).
+   - A script on the Mac reads the notes in the Notes folder **Capture**: text, formatting, lists, tables, images and attachments.
+   - It writes each note to `Inbox/` as Markdown, with its images and attachments in `Attachments/`.
+   - It deletes the note from Apple Notes only after the files are written and read back, and not if the note changed meanwhile or an attachment couldn't be exported.
+   - Findings: images come either embedded in the note's HTML or as attachments, which Notes saves without a file extension; the importer handles both. Scanned documents can't be exported by script, so those notes stay in Apple Notes.
+   - *Check:* a test note made on the Mac, with formatting, a list and an image, landed in `Inbox/` with its image and moved to Recently Deleted in Apple Notes. ✅ (test folder; Dropbox isn't on the Mac yet)
+   - *Check:* a note captured on the iPhone, with a photo, appears in `Dropbox\BT Notes\Inbox` on Windows with its image. ⏳ Needs Dropbox on the Mac.
 10. **Inbox.**
     - Show new imports.
     - Tag them, file them, skip duplicates.

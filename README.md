@@ -135,6 +135,25 @@ Then ask, for example, "make a mood board called Kitchen from the photos in my D
 
 The tools: `list_boards`, `read_board`, `create_board`, `add_cards` (cards, columns, swatches, charts, arrows), `update_cards`, `remove_cards`. To write board files directly instead, see [docs/board-format.md](docs/board-format.md).
 
+## Apple Notes capture (Mac)
+
+Notes you jot down in Apple Notes, on the iPhone or the Mac, can move into BT Notes. Put them in a Notes folder called **Capture**, then run this on the Mac:
+
+```bash
+npm run import-notes
+```
+
+Each note becomes a Markdown file in `Inbox/`, with its images and attachments copied into `Attachments/`. Once the file is written and read back, the note is deleted from Apple Notes. Notes keeps deleted notes in **Recently Deleted** for 30 days.
+
+- `npm run import-notes -- --dry-run` shows what would be imported, without writing or deleting anything.
+- `npm run import-notes -- --keep` imports but leaves the notes in Apple Notes.
+- `npm run import-notes -- --folder "Other folder"` imports from a different Notes folder.
+- **First run:** macOS asks whether Terminal may control Notes. Choose **OK**.
+- **Kept in Apple Notes:** password-locked notes are skipped. A note also stays in Apple Notes if one of its attachments can't be exported (scanned documents can't be), or if it was edited while being imported.
+- **Run twice:** a note that was already imported isn't imported again, even after you've moved its file out of `Inbox/`. If you edit the note in Apple Notes afterwards, the new version is imported as a separate file.
+
+It uses the notes folder the app last opened, or `BT_NOTES_ROOT`.
+
 ## Development
 
 ```bash
@@ -147,4 +166,5 @@ npm run build     # production build into out/
 - `src/preload/`: the bridge between the window and the main process.
 - `src/shared/types.ts`: the storage interface the UI uses. The iPhone app will implement the same interface on top of Google Drive.
 - `src/renderer/`: the Svelte UI, the CodeMirror editor and search.
+- `mac/`: the Apple Notes importer. Like `mcp/`, Node runs it straight from TypeScript.
 - `mcp/`: the MCP server for Claude. Node runs it straight from TypeScript, so it uses only syntax Node can strip: no enums or constructor parameter properties.
