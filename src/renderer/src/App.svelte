@@ -23,7 +23,7 @@
 {#if store.ready && !store.root}
   <div class="welcome">
     <h1>BT Notes</h1>
-    <p>Choose the folder where your notes live, for example <code>Dropbox\BT Notes</code>.</p>
+    <p>Choose the folder where your notes live, for example <code>BT Notes</code> in iCloud Drive.</p>
     <button class="primary" onclick={() => store.chooseFolder()}>Choose folder…</button>
   </div>
 {:else if store.ready}

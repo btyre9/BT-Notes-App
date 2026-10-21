@@ -8,8 +8,8 @@
  *   --folder    the Apple Notes folder to import from (default: Capture)
  *   --quiet     print nothing when there's nothing to import (for the scheduled run)
  *
- * The notes folder is BT_NOTES_ROOT if set, else the folder the app last opened, else Dropbox's
- * BT Notes folder.
+ * The notes folder is BT_NOTES_ROOT if set, else the folder the app last opened, else iCloud
+ * Drive's BT Notes folder.
  */
 import { closeSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { tmpdir } from 'node:os'

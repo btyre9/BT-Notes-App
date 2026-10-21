@@ -1,6 +1,6 @@
 # BT Notes
 
-Boards of notes, images and text, on top of Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files and boards are `.canvas` files (Obsidian's JSON Canvas format) in a folder that Dropbox syncs. See [PLAN.md](PLAN.md) for the design and roadmap.
+Boards of notes, images and text, on top of Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files and boards are `.canvas` files (Obsidian's JSON Canvas format) in a `BT Notes` folder in iCloud Drive. See [PLAN.md](PLAN.md) for the design and roadmap.
 
 ## Install on Windows
 
@@ -11,7 +11,7 @@ npm install
 npm run dist:win
 ```
 
-Run `dist\BT Notes Setup 0.1.0.exe`.
+Run `dist\BT Notes Setup 0.1.0.exe`. On a work laptop, use **File → Change Notes Folder…** to point it at a work folder, such as one in your company OneDrive (see [Folders](#folders)).
 - **No admin rights needed:** it installs for your user only, into `%LOCALAPPDATA%\Programs\BT Notes`, and adds Start menu and desktop shortcuts.
 - **Windows warning:** the installer isn't code-signed, so the first time you run it Windows SmartScreen may say "Windows protected your PC". Choose **More info → Run anyway**.
 - **Uninstall:** use **Settings → Apps**.
@@ -23,7 +23,11 @@ Run `dist\BT Notes Setup 0.1.0.exe`.
 Mac apps have to be built on a Mac, so the steps run there.
 
 1. Install Node.js 22 or newer: the macOS installer from [nodejs.org](https://nodejs.org).
-2. Unzip `BT-Notes-App-source.zip` from your Dropbox to a folder outside Dropbox, such as `~/BT-Notes-App`. Outside, because the next step downloads a few hundred MB that shouldn't sync.
+2. Get the code into a folder in your home folder, not in iCloud Drive or another synced folder, since the next step downloads a few hundred MB that shouldn't sync:
+
+   ```bash
+   git clone https://github.com/btyre9/BT-Notes-App.git ~/BT-Notes-App
+   ```
 3. In Terminal:
 
    ```bash
@@ -32,7 +36,8 @@ Mac apps have to be built on a Mac, so the steps run there.
    npm run dev
    ```
 
-   The app opens your Dropbox `BT Notes` folder (in `~/Library/CloudStorage/Dropbox` or `~/Dropbox`). That's enough to use it; it runs until you close Terminal.
+   The app opens `BT Notes` in iCloud Drive. That's enough to use it; it runs until you close Terminal.
+   - **If it says "Electron uninstall":** run `node node_modules/electron/install.js` (npm sometimes skips Electron's download), then `npm run dev` again.
 4. To install it as a normal app, run `npm run dist:mac`, open the `.dmg` it makes in `dist/`, and drag **BT Notes** to Applications.
    - **The app isn't signed by an Apple developer account**, so the first time, right-click it in Applications and choose **Open**, then **Open** again.
    - **If macOS says the app "is damaged"**, run `xattr -cr "/Applications/BT Notes.app"` in Terminal and open it again.
@@ -48,7 +53,14 @@ npm install
 npm run dev
 ```
 
-On first launch the app opens `Dropbox\BT Notes` in your user folder if that folder exists. Otherwise it asks you to pick a folder. You can change the folder later with **File → Change Notes Folder…**.
+## Folders
+
+On first launch the app opens the first of these that exists, else it asks you to pick a folder:
+
+1. `BT Notes` in iCloud Drive (on a Mac, `~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`; on Windows with iCloud for Windows, `~\iCloudDrive\BT Notes`)
+2. `BT Notes` in Dropbox, where it used to live
+
+Change it with **File → Change Notes Folder…**; the app, Claude's MCP server and the Apple Notes import all use the folder you pick. A work laptop can use a separate work folder this way, such as `OneDrive - Company\BT Notes`, so work notes stay on work storage.
 
 To try the app on a different folder without changing your saved choice, set `BT_NOTES_ROOT` before starting it:
 

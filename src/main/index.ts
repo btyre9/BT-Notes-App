@@ -1,26 +1,18 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { defaultRoots } from '../shared/notesRoot'
 import type { MenuAction, PendingSave } from '../shared/types'
 import { fileVersion, handleScheme, registerScheme, savePdfPreview } from './files'
 import { Vault } from './vault'
 
-/**
- * Where Dropbox keeps the notes folder: ~/Dropbox on Windows; on a Mac, ~/Library/CloudStorage
- * for current versions of Dropbox and ~/Dropbox for older ones.
- */
-const DEFAULT_ROOTS = [
-  ...(process.platform === 'darwin' ? [join(homedir(), 'Library', 'CloudStorage', 'Dropbox', 'BT Notes')] : []),
-  join(homedir(), 'Dropbox', 'BT Notes'),
-]
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 
 let win: BrowserWindow | null = null
 let vault: Vault | null = null
 
-/** The notes folder: BT_NOTES_ROOT if set, then the saved choice, then the default Dropbox folder. */
+/** The notes folder: BT_NOTES_ROOT if set, then the saved choice, then the first default folder that exists. */
 async function savedRoot(): Promise<string | null> {
   if (process.env.BT_NOTES_ROOT) return process.env.BT_NOTES_ROOT
   try {
@@ -29,7 +21,7 @@ async function savedRoot(): Promise<string | null> {
   } catch {
     // No settings yet on first run.
   }
-  return DEFAULT_ROOTS.find((root) => existsSync(root)) ?? null
+  return defaultRoots().find((root) => existsSync(root)) ?? null
 }
 
 function openVault(root: string): void {
