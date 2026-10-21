@@ -3,4 +3,6 @@ export interface EditorContext {
   resolve(target: string): { title: string; snippet: string } | null
   open(target: string): void
   linkNames(): string[]
+  /** The open note's path in the notes folder, for images linked relative to it. */
+  notePath(): string | null
 }

@@ -7,6 +7,7 @@ import { drawSelection, dropCursor, EditorView, keymap, type Command } from '@co
 import { tags as t } from '@lezer/highlight'
 import { calloutFolding } from './callouts'
 import type { EditorContext } from './context'
+import { imagePreview } from './images'
 import { livePreview, tagHighlight } from './livePreview'
 
 /** Marks changes that came from disk, so they aren't saved straight back. */
@@ -77,6 +78,7 @@ export function editorExtensions(ctx: EditorContext, onChange: (doc: string) => 
     markdown({ base: markdownLanguage }),
     syntaxHighlighting(bearHighlight),
     livePreview(ctx),
+    imagePreview(ctx),
     calloutFolding,
     tagHighlight,
     autocompletion({ override: [linkCompletions(ctx)], icons: false }),

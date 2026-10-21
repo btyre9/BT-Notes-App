@@ -96,6 +96,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | All open tasks | **Tasks** in the sidebar |
 | Link to a note | Type `[[` and pick a note, or **Insert → Link to note** |
 | Follow a link | Click it. On the line you're editing, **Ctrl+click** (**Cmd+click** on Mac) |
+| Image | `![](Attachments/photo.png)` or `![[Attachments/photo.png]]` shows the picture, at most the editor's width (`![[photo.png\|300]]` for 300 px). Paths start at the notes folder; `./` and `../` ones start at the note's folder. Click the picture to edit its link |
 | Subpage | **Insert → Subpage**: creates a page and adds its card |
 | Callout | `> [!note] Title`, or **Insert → Callout**. Other types: info, tip, important, warning, caution |
 | Toggle | `> [!toggle]- Title` (closed) or `+` (open); click the arrow to open or close it |

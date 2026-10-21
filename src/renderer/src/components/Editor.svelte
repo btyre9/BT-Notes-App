@@ -17,6 +17,7 @@
     resolve: (target) => store.resolve(target),
     open: (target) => store.openLink(target),
     linkNames: () => store.linkNames(),
+    notePath: () => store.selected?.path ?? null,
   }
   const extensions = editorExtensions(ctx, (doc) => {
     if (currentId) store.edit(currentId, doc)

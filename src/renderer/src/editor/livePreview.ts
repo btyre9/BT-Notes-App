@@ -11,6 +11,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view'
 import { DUE_PATTERN, isoDate, TAG_PATTERN, TASK_LINE, WIKILINK_PATTERN } from '../lib/note'
+import { IMAGE_FILE } from '../lib/images'
 import { CALLOUT_START } from './callouts'
 import type { EditorContext } from './context'
 
@@ -140,7 +141,7 @@ class CalloutLabelWidget extends WidgetType {
   }
 }
 
-function inCode(state: EditorState, pos: number): boolean {
+export function inCode(state: EditorState, pos: number): boolean {
   for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, 1); node; node = node.parent) {
     if (CODE_NODES.has(node.name)) return true
   }
@@ -170,6 +171,11 @@ function decorateLinksAndDates(
       const start = line.from + match.index
       const end = start + match[0].length
       if (inCode(state, start)) continue
+      // `![[photo.png]]` shows the picture (see images.ts), not a link.
+      if (line.text[match.index - 1] === '!' && IMAGE_FILE.test(match[1].trim())) {
+        linkRanges.push([start - 1, end])
+        continue
+      }
       linkRanges.push([start, end])
       const target = match[1].trim()
       const note = ctx.resolve(target)

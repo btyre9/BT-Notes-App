@@ -474,6 +474,36 @@ button {
   border-left-color: var(--text-faint);
 }
 
+/* Images: ![](Attachments/photo.png) and ![[Attachments/photo.png]] */
+.cm-images {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 0;
+}
+/* Below a line rather than in it: lined up with the text, which CodeMirror indents by 6px. */
+.cm-content > .cm-images {
+  padding-inline: 6px 2px;
+}
+.cm-images img {
+  display: block;
+  max-width: 100%;
+  max-height: 80vh;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cm-image-missing {
+  padding: 6px 10px;
+  border: 1px dashed var(--text-faint);
+  border-radius: 6px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
 /* Callouts and toggles: > [!note] … */
 .cm-line.cm-callout {
   --callout: var(--text-muted);
