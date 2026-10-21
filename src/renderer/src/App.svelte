@@ -8,7 +8,17 @@
   import { store } from './lib/store.svelte'
 
   store.init().catch((err: Error) => (store.error = err.message))
+
+  function onKeyDown(event: KeyboardEvent) {
+    // Ctrl+\ (Cmd+\ on a Mac) hides or shows the sidebar beside a board.
+    if (event.key === '\\' && (event.ctrlKey || event.metaKey) && store.mode === 'board') {
+      event.preventDefault()
+      store.toggleSidebar()
+    }
+  }
 </script>
+
+<svelte:window onkeydown={onKeyDown} />
 
 {#if store.ready && !store.root}
   <div class="welcome">
@@ -18,8 +28,11 @@
   </div>
 {:else if store.ready}
   {@const panel = store.mode === 'board' && store.panelOpen && store.selected}
-  <div class="app" class:board-mode={store.mode === 'board'} class:with-panel={panel}>
-    <Sidebar />
+  {@const hideSidebar = store.mode === 'board' && store.sidebarHidden}
+  <div class="app" class:board-mode={store.mode === 'board'} class:with-panel={panel} class:sidebar-hidden={hideSidebar}>
+    {#if !hideSidebar}
+      <Sidebar />
+    {/if}
     {#if store.mode === 'board'}
       <BoardView />
       {#if panel}

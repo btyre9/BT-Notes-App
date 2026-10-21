@@ -24,6 +24,14 @@
   --code-bg: #f2f2f2;
   --tag-bg: #f0f0f0;
   --tag-text: #77777b;
+
+  /* Boards: a plain canvas, panels a step above it, and floating controls above those. */
+  --board-bg: #f1f1f3;
+  --board-column: #e6e6e9;
+  --board-card: #ffffff;
+  --board-chrome: rgba(255, 255, 255, 0.94);
+  --board-edge: rgba(0, 0, 0, 0.08);
+  --board-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -41,6 +49,13 @@
     --code-bg: #2a2a2d;
     --tag-bg: #333336;
     --tag-text: #a8a8ad;
+
+    --board-bg: #121214;
+    --board-column: #1c1c1f;
+    --board-card: #252528;
+    --board-chrome: rgba(38, 38, 41, 0.94);
+    --board-edge: rgba(255, 255, 255, 0.07);
+    --board-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -765,6 +780,12 @@ button {
 .app.board-mode.with-panel {
   grid-template-columns: 220px 1fr minmax(360px, 38%);
 }
+.app.board-mode.sidebar-hidden {
+  grid-template-columns: 1fr;
+}
+.app.board-mode.with-panel.sidebar-hidden {
+  grid-template-columns: 1fr minmax(360px, 38%);
+}
 .board-mode .editor-pane {
   border-left: 1px solid var(--list-border);
 }
@@ -801,19 +822,20 @@ button {
 }
 
 .board-pane {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--list-bg);
+  background: var(--board-bg);
 }
 .board-toolbar {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 8px 12px;
-  background: var(--editor-bg);
-  border-bottom: 1px solid var(--list-border);
+  background: var(--board-bg);
+  border-bottom: 1px solid var(--board-edge);
 }
 .board-title {
   min-width: 60px;
@@ -858,24 +880,20 @@ input.board-title:focus {
 .swatch-none {
   background: linear-gradient(135deg, transparent 45%, var(--accent) 45%, var(--accent) 55%, transparent 55%), var(--editor-bg);
 }
-.zoom-button {
-  font-variant-numeric: tabular-nums;
-}
 .hidden-input {
   display: none;
 }
 
 .board-viewport {
-  --card-bg: var(--editor-bg);
-  --card-border: var(--list-border);
+  --card-bg: var(--board-card);
+  --card-border: var(--board-edge);
   position: relative;
   flex: 1;
   /* clip, not hidden: focusing a field in a card must never scroll the board out of line. */
   overflow: clip;
   touch-action: none;
   user-select: none;
-  background-color: var(--list-bg);
-  background-image: radial-gradient(var(--list-border) 1.2px, transparent 1.2px);
+  background: var(--board-bg);
 }
 .board-viewport.dropping {
   box-shadow: inset 0 0 0 3px var(--accent);
@@ -898,14 +916,116 @@ input.board-title:focus {
   pointer-events: none;
 }
 
+/* Floating controls over the board: tools at the bottom, zoom and map at the bottom left. */
+.board-dock {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 18px;
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+  transform: translateX(-50%);
+  background: var(--board-chrome);
+  border: 1px solid var(--board-edge);
+  border-radius: 14px;
+  box-shadow: var(--board-shadow);
+  backdrop-filter: blur(12px);
+}
+.dock-button {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  color: var(--text-muted);
+}
+.dock-button .icon {
+  width: 19px;
+  height: 19px;
+}
+.dock-button:hover,
+.dock-button[aria-expanded='true'] {
+  background: var(--code-bg);
+  color: var(--text);
+}
+/* Menus from the dock open upward, centered on their button. */
+.board-dock .menu,
+.board-dock .picker {
+  top: auto;
+  right: auto;
+  bottom: calc(100% + 14px);
+  left: 50%;
+  transform: translateX(-50%);
+}
+.board-corner {
+  position: absolute;
+  z-index: 5;
+  left: 16px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px;
+  background: var(--board-chrome);
+  border: 1px solid var(--board-edge);
+  border-radius: 10px;
+  box-shadow: var(--board-shadow);
+  backdrop-filter: blur(12px);
+}
+.zoom-controls .toolbar-divider {
+  margin: 0 3px;
+  background: var(--board-edge);
+}
+.zoom-level {
+  min-width: 46px;
+  justify-content: center;
+  text-align: center;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.zoom-level:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+.minimap {
+  display: block;
+  cursor: pointer;
+  background: var(--board-chrome);
+  border: 1px solid var(--board-edge);
+  border-radius: 10px;
+  box-shadow: var(--board-shadow);
+  touch-action: none;
+}
+.minimap-card {
+  fill: color-mix(in srgb, var(--node-color, var(--text-muted)) 60%, transparent);
+}
+.minimap-group {
+  fill: color-mix(in srgb, var(--node-color, var(--text-faint)) 30%, transparent);
+}
+.minimap-screen {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
 .card {
   position: absolute;
   /* Keeps each card's arrow handles inside its own layer, so a card on top covers them. */
   isolation: isolate;
   border: 1px solid var(--card-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--card-bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   color: var(--text);
 }
@@ -1081,6 +1201,17 @@ input.board-title:focus {
   .board-toolbar .text-button {
     padding: 0 6px;
   }
+  /* The map would run into the tools; the zoom buttons stay. */
+  .minimap {
+    display: none;
+  }
+}
+@container (max-width: 620px) {
+  .board-dock {
+    left: auto;
+    right: 16px;
+    transform: none;
+  }
 }
 @container (max-width: 560px) {
   .swatches {
@@ -1091,18 +1222,23 @@ input.board-title:focus {
 /* Columns */
 .card-column {
   overflow: visible;
-  background: color-mix(in srgb, var(--card-color, var(--text-faint)) 12%, var(--list-bg));
-  border-color: var(--card-color, var(--card-border));
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--card-color, transparent) 10%, var(--board-column));
+  border-color: var(--card-color, var(--board-edge));
+  border-radius: 14px;
   box-shadow: none;
 }
+/* Small capitals, as section labels rather than titles, so the cards stand out. */
 .card-column .card-group-label {
   position: static;
   height: 44px;
-  padding: 12px 14px 0;
+  padding: 17px 14px 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 .group-label-input {
   font: inherit;
@@ -1506,6 +1642,13 @@ input.arrow-label {
 /* Text cards: rendered Markdown, with tables and Mermaid charts */
 .card-md {
   white-space: normal;
+  color: color-mix(in srgb, var(--text) 82%, transparent);
+}
+.card-md strong,
+.card-md h1,
+.card-md h2,
+.card-md h3 {
+  color: var(--text);
 }
 .card-md > :first-child {
   margin-top: 0;

@@ -38,6 +38,7 @@
   import BoardTile from './BoardTile.svelte'
   import CardPicker from './CardPicker.svelte'
   import Icon from './Icon.svelte'
+  import Minimap from './Minimap.svelte'
 
   const MIN_ZOOM = 0.1
   const MAX_ZOOM = 4
@@ -144,10 +145,20 @@
     return edgeShape(connecting.from, connecting.side, to, target ? nearestSide(target, connecting.point) : null, { start: false, end: true }, headSize)
   })
 
-  /** Dot spacing on screen: 24 board units, doubled as you zoom out so the dots stay apart. */
-  const gridSize = $derived(24 * view.zoom * 2 ** Math.max(0, Math.ceil(Math.log2(12 / (24 * view.zoom)))))
 
   const clampZoom = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+
+  /** Zooms in or out around the middle of the window. */
+  function zoomBy(factor: number) {
+    const zoom = clampZoom(view.zoom * factor)
+    const k = zoom / view.zoom
+    boards.setView({ zoom, x: width / 2 - (width / 2 - view.x) * k, y: height / 2 - (height / 2 - view.y) * k })
+  }
+
+  /** Centers the window on a point on the board, keeping the zoom. */
+  function centerOn(x: number, y: number) {
+    boards.setView({ zoom: view.zoom, x: width / 2 - x * view.zoom, y: height / 2 - y * view.zoom })
+  }
 
   function fitView(): View {
     const bounds = boundsOf(nodes)
@@ -806,6 +817,12 @@
 
 <main class="board-pane">
   <header class="board-toolbar">
+    <button
+      class="icon-button"
+      class:on={store.sidebarHidden}
+      title={store.sidebarHidden ? 'Show sidebar (Ctrl+\\)' : 'Hide sidebar (Ctrl+\\)'}
+      onclick={() => store.toggleSidebar()}><Icon name="sidebar" /></button
+    >
     {#if boards.canGoBack}
       <button class="icon-button" title="Back" onclick={() => boards.back()}><Icon name="back" /></button>
     {/if}
@@ -849,56 +866,8 @@
           {/if}
         </div>
       {/if}
-      <button class="icon-button" title="Delete (Del)" onclick={deleteSelection}><Icon name="trash" /></button>
-      <span class="toolbar-divider"></span>
-    {/if}
-    <button class="text-button" title="Add text (or double-click the board)" onclick={() => addText()}><Icon name="text" /> <span class="button-label">Text</span></button>
-    <div class="insert">
-      <button class="text-button" title="Add a note" aria-expanded={picker === 'note'} onclick={() => (picker = picker === 'note' ? null : 'note')}>
-        <Icon name="notes" /> <span class="button-label">Note</span>
-      </button>
-      {#if picker === 'note'}
-        <CardPicker kind="note" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
-      {/if}
-    </div>
-    <div class="insert">
-      <button class="text-button" title="Add a table, chart or diagram" aria-expanded={picker === 'chart'} onclick={() => (picker = picker === 'chart' ? null : 'chart')}>
-        <Icon name="chart" /> <span class="button-label">Chart</span>
-      </button>
-      {#if picker === 'chart'}
-        <div class="menu chart-menu" role="menu">
-          {#each TEMPLATES as template (template.label)}
-            <button
-              role="menuitem"
-              onclick={() => {
-                picker = null
-                addText(center(), template.text, template.width)
-              }}>{template.label}</button
-            >
-          {/each}
-        </div>
-      {/if}
-    </div>
-    <div class="insert">
-      <button class="text-button" title="Add a board" aria-expanded={picker === 'board'} onclick={() => (picker = picker === 'board' ? null : 'board')}>
-        <Icon name="board" /> <span class="button-label">Board</span>
-      </button>
-      {#if picker === 'board'}
-        <CardPicker kind="board" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
-      {/if}
-    </div>
-    <button class="text-button" title="Add images, PDFs, videos or documents (or drop or paste them)" onclick={() => imageInput.click()}>
-      <Icon name="image" /> <span class="button-label">Files</span>
-    </button>
-    <button class="text-button" title="Add a color swatch" onclick={addSwatch}><Icon name="color" /> <span class="button-label">Color</span></button>
-    <button class="text-button" title="Add a column: cards dragged into it stack top to bottom" onclick={addColumn}><Icon name="column" /> <span class="button-label">Column</span></button>
-    <input class="hidden-input" type="file" multiple bind:this={imageInput} onchange={chooseFiles} />
-    <span class="toolbar-divider"></span>
-    <button class="text-button zoom-button" title="Fit board to window" onclick={() => boards.setView(fitView())}>
-      <Icon name="fit" />
-      {Math.round(view.zoom * 100)}%
-    </button>
-    {#if !isHome}
+      <button class="icon-button" title="Delete selected (Del)" onclick={deleteSelection}><Icon name="trash" /></button>
+    {:else if !isHome}
       <button class="icon-button" title="Move board to Trash" onclick={() => boards.trash(boards.current)}><Icon name="trash" /></button>
     {/if}
   </header>
@@ -918,8 +887,6 @@
     ondragleave={() => (dropping = false)}
     ondrop={onDrop}
     style:--zoom={view.zoom}
-    style:background-position="{view.x}px {view.y}px"
-    style:background-size="{gridSize}px {gridSize}px"
     role="application"
     aria-label="Board"
   >
@@ -1003,8 +970,67 @@
       {#each shownCards as node (node.id)}{@render card(node)}{/each}
     </div>
     {#if !nodes.length}
-      <p class="board-empty">Double-click to add text, or drop images, PDFs, videos and documents here.<br />Use the toolbar to add notes, boards and columns.</p>
+      <p class="board-empty">Double-click to add text, or drop images, PDFs, videos and documents here.<br />Use the toolbar at the bottom to add notes, boards and columns.</p>
     {/if}
+  </div>
+
+  <div class="board-dock" role="toolbar" aria-label="Add to board">
+    <button class="dock-button" title="Add text (or double-click the board)" onclick={() => addText()}><Icon name="text" /></button>
+    <div class="insert">
+      <button class="dock-button" title="Add a note" aria-expanded={picker === 'note'} onclick={() => (picker = picker === 'note' ? null : 'note')}>
+        <Icon name="notes" />
+      </button>
+      {#if picker === 'note'}
+        <CardPicker kind="note" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
+      {/if}
+    </div>
+    <div class="insert">
+      <button class="dock-button" title="Add a table, chart or diagram" aria-expanded={picker === 'chart'} onclick={() => (picker = picker === 'chart' ? null : 'chart')}>
+        <Icon name="chart" />
+      </button>
+      {#if picker === 'chart'}
+        <div class="menu chart-menu" role="menu">
+          {#each TEMPLATES as template (template.label)}
+            <button
+              role="menuitem"
+              onclick={() => {
+                picker = null
+                addText(center(), template.text, template.width)
+              }}>{template.label}</button
+            >
+          {/each}
+        </div>
+      {/if}
+    </div>
+    <div class="insert">
+      <button class="dock-button" title="Add a board" aria-expanded={picker === 'board'} onclick={() => (picker = picker === 'board' ? null : 'board')}>
+        <Icon name="board" />
+      </button>
+      {#if picker === 'board'}
+        <CardPicker kind="board" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
+      {/if}
+    </div>
+    <button class="dock-button" title="Add images, PDFs, videos or documents (or drop or paste them)" onclick={() => imageInput.click()}>
+      <Icon name="image" />
+    </button>
+    <button class="dock-button" title="Add a color swatch" onclick={addSwatch}><Icon name="color" /></button>
+    <button class="dock-button" title="Add a column: cards dragged into it stack top to bottom" onclick={addColumn}><Icon name="column" /></button>
+    <input class="hidden-input" type="file" multiple bind:this={imageInput} onchange={chooseFiles} />
+  </div>
+
+  <div class="board-corner">
+    {#if nodes.length}
+      <Minimap {nodes} {view} {width} {height} onjump={centerOn} />
+    {/if}
+    <div class="zoom-controls">
+      <button class="icon-button" title="Zoom out" onclick={() => zoomBy(1 / 1.25)}><Icon name="minus" /></button>
+      <button class="zoom-level" title="Fit board to window" onclick={() => boards.setView(fitView())}>{Math.round(view.zoom * 100)}%</button>
+      <button class="icon-button" title="Zoom in" onclick={() => zoomBy(1.25)}><Icon name="plus" /></button>
+      <button class="icon-button" title="Fit board to window" onclick={() => boards.setView(fitView())}><Icon name="fit" /></button>
+      <span class="toolbar-divider"></span>
+      <button class="icon-button" title="Undo (Ctrl+Z)" onclick={() => boards.undo()}><Icon name="undo" /></button>
+      <button class="icon-button" title="Redo (Ctrl+Shift+Z)" onclick={() => boards.redo()}><Icon name="redo" /></button>
+    </div>
   </div>
 
   {#if viewing}

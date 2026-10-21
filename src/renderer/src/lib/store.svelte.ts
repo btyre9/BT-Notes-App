@@ -77,6 +77,17 @@ function localTimestamp(date = new Date()): string {
 
 const key = (path: string) => path.toLowerCase()
 
+const SIDEBAR_KEY = 'bt.sidebarHidden'
+
+/** A remembered on/off setting; storage can be unavailable, and then it's off. */
+function readFlag(name: string): boolean {
+  try {
+    return localStorage.getItem(name) === 'true'
+  } catch {
+    return false
+  }
+}
+
 /** The names a note answers to in a `[[link]]`: its title and its file name, lower-cased. */
 function namesOf(note: Note): Set<string> {
   return new Set([note.title.toLowerCase(), baseName(note.path).toLowerCase()].filter(Boolean))
@@ -89,6 +100,8 @@ class NotesStore {
   mode = $state<'board' | 'notes'>('board')
   /** In board mode, whether the selected note is open in a panel beside the board. */
   panelOpen = $state(false)
+  /** In board mode, whether the sidebar is hidden so the board fills the window. */
+  sidebarHidden = $state(readFlag(SIDEBAR_KEY))
   selectedId = $state<string | null>(null)
   filter = $state<Filter>({ kind: 'all' })
   query = $state('')
@@ -298,6 +311,15 @@ class NotesStore {
 
   closePanel(): void {
     this.panelOpen = false
+  }
+
+  toggleSidebar(): void {
+    this.sidebarHidden = !this.sidebarHidden
+    try {
+      localStorage.setItem(SIDEBAR_KEY, String(this.sidebarHidden))
+    } catch {
+      // Not remembered, but it still toggles.
+    }
   }
 
   /** The note a `[[link]]` points to: matched by title, then by file name, ignoring case. */
