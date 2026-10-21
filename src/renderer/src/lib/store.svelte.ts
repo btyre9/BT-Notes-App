@@ -1,5 +1,6 @@
 import type { MenuAction, NoteFile, PendingSave, VaultEvent } from '../../../shared/types'
 import {
+  addTag,
   baseName,
   buildNote,
   buildTagTree,
@@ -8,6 +9,7 @@ import {
   dailyPath,
   dailyTitle,
   fileNameFor,
+  INBOX_DIR,
   isLinkable,
   parseNote,
   plainLine,
@@ -22,6 +24,7 @@ import { createIndex, remove, upsert } from './search'
 
 export type Filter =
   | { kind: 'all' }
+  | { kind: 'inbox' }
   | { kind: 'daily' }
   | { kind: 'pinned' }
   | { kind: 'untagged' }
@@ -48,6 +51,8 @@ function matches(note: Note, filter: Filter): boolean {
   switch (filter.kind) {
     case 'all':
       return true
+    case 'inbox':
+      return note.path.startsWith(INBOX_DIR)
     case 'daily':
       return note.path.startsWith(DAILY_DIR)
     case 'pinned':
@@ -166,6 +171,22 @@ class NotesStore {
       result.push({ note, context: plainLine(line ?? '') })
     }
     return result.sort((a, b) => b.note.mtime - a.note.mtime)
+  })
+
+  /** How many notes wait in Inbox/ to be tagged and filed. */
+  inboxCount = $derived.by(() => {
+    void this.revision
+    let count = 0
+    for (const note of this.notes.values()) if (note.path.startsWith(INBOX_DIR)) count++
+    return count
+  })
+
+  /** Every tag in use, most used first, for suggestions. */
+  allTags = $derived.by(() => {
+    void this.revision
+    const counts = new Map<string, number>()
+    for (const note of this.notes.values()) for (const tag of note.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([tag]) => tag)
   })
 
   /** Every open task in every note. */
@@ -388,15 +409,40 @@ class NotesStore {
     this.focus = { id, line: 2 }
   }
 
+  /** The note to select after this one leaves the list: the next one, else the one before. */
+  private neighbor(id: string): string | null {
+    const list = this.visible
+    const position = list.findIndex((n) => n.id === id)
+    return (list[position + 1] ?? list[position - 1])?.id ?? null
+  }
+
+  tagNote(id: string, tag: string): void {
+    const note = this.notes.get(id)
+    if (note) this.edit(id, addTag(note.body, tag))
+  }
+
+  /** Moves a note from Inbox/ to Notes/, then goes on to the next note in the Inbox. */
+  fileNote(id: string): void {
+    // Pending edits are saved first, under the note's current folder.
+    if (this.saveTimers.has(id)) this.flush(id)
+    const note = this.notes.get(id)
+    if (!note || !note.path.startsWith(INBOX_DIR)) return
+    const next = this.filter.kind === 'inbox' ? this.neighbor(id) : id
+    const path = this.pathFor(note, NOTES_DIR)
+    this.put({ ...note, path })
+    boards.fileMoved(note.path, path)
+    this.save(id, { path, content: contentOf(note), renameFrom: note.path })
+    if (this.selectedId === id) this.select(next)
+  }
+
   trashNote(id: string): void {
     const note = this.notes.get(id)
     if (!note) return
     clearTimeout(this.saveTimers.get(id))
     this.saveTimers.delete(id)
-    const list = this.visible
-    const position = list.findIndex((n) => n.id === id)
+    const next = this.neighbor(id)
     this.drop(id)
-    if (this.selectedId === id) this.selectedId = (list[position + 1] ?? list[position - 1])?.id ?? null
+    if (this.selectedId === id) this.selectedId = next
     if (this.mode === 'board') this.panelOpen = false
     vault.trash(note.path).catch(this.showError)
   }

@@ -39,6 +39,8 @@ const UNLINKABLE = /[[\]|]/
 const RESERVED_WINDOWS_NAMES = /^(con|prn|aux|nul|com\d|lpt\d)$/i
 
 export const DAILY_DIR = 'Daily/'
+/** Where notes imported from Apple Notes wait to be tagged and filed. */
+export const INBOX_DIR = 'Inbox/'
 
 export function splitFrontmatter(content: string): { frontmatter: string; body: string } {
   const match = content.match(FRONTMATTER)
@@ -74,6 +76,30 @@ export function tagsOf(body: string): string[] {
   const tags = new Set<string>()
   for (const match of withoutCode(body).matchAll(TAG_PATTERN)) tags.add(match[0].slice(1).toLowerCase())
   return [...tags].sort()
+}
+
+/** A tag as typed, made into one that TAG_PATTERN finds: no `#`, spaces as dashes, other characters dropped. */
+export function cleanTag(tag: string): string {
+  return tag
+    .trim()
+    .replace(/^#+/, '')
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}_\-/]/gu, '')
+    .replace(/\/{2,}/g, '/')
+    .replace(/^\/+|\/+$/g, '')
+}
+
+const TAG_LINE = /^\s*#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*(?:\s+#[\p{L}\p{N}_-]+(?:\/[\p{L}\p{N}_-]+)*)*\s*$/u
+
+/** Adds a tag to the note's last line if that line holds only tags, else on a new line at the end. */
+export function addTag(body: string, tag: string): string {
+  const clean = cleanTag(tag)
+  if (!clean || tagsOf(body).includes(clean.toLowerCase())) return body
+  const lines = body.trimEnd().split('\n')
+  const last = lines[lines.length - 1]
+  if (lines.length > 1 && TAG_LINE.test(last)) lines[lines.length - 1] = `${last.trimEnd()} #${clean}`
+  else lines.push('', `#${clean}`)
+  return `${lines.join('\n')}\n`
 }
 
 export function linksOf(body: string): string[] {

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  addTag,
   buildTagTree,
+  cleanTag,
   fileNameFor,
   isLinkable,
   linksOf,
@@ -148,5 +150,38 @@ describe('search', () => {
     const elapsed = performance.now() - start
     expect(results.length).toBeGreaterThan(0)
     expect(elapsed).toBeLessThan(50)
+  })
+})
+
+describe('cleanTag', () => {
+  it('makes typed text into a tag', () => {
+    expect(cleanTag(' #Home Office ')).toBe('Home-Office')
+    expect(cleanTag('work//meetings/')).toBe('work/meetings')
+    expect(cleanTag('a.b,c!')).toBe('abc')
+    expect(cleanTag('#')).toBe('')
+  })
+})
+
+describe('addTag', () => {
+  it('adds a tag line at the end', () => {
+    expect(addTag('# Groceries\n\nMilk\n', 'shopping')).toBe('# Groceries\n\nMilk\n\n#shopping\n')
+  })
+
+  it('adds to a last line that holds only tags', () => {
+    expect(addTag('# Groceries\nMilk\n\n#shopping #home/kitchen\n', 'weekly')).toBe('# Groceries\nMilk\n\n#shopping #home/kitchen #weekly\n')
+  })
+
+  it('leaves the note alone when it already has the tag or the tag is empty', () => {
+    const body = '# Groceries\n#Shopping\n'
+    expect(addTag(body, 'shopping')).toBe(body)
+    expect(addTag(body, '  ')).toBe(body)
+  })
+
+  it('never adds to the title line', () => {
+    expect(addTag('# Title', 'x')).toBe('# Title\n\n#x\n')
+  })
+
+  it('makes a tag the note finds', () => {
+    expect(tagsOf(addTag('# Note\nText', 'Home Office'))).toEqual(['home-office'])
   })
 })

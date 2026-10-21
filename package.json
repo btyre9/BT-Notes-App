@@ -14,7 +14,10 @@
     "dist:win": "electron-vite build && electron-builder --win",
     "dist:mac": "electron-vite build && electron-builder --mac",
     "mcp": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mcp/server.ts",
-    "import-notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/import-apple-notes.ts"
+    "import-notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/import-apple-notes.ts",
+    "import-notes:install": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts install",
+    "import-notes:uninstall": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts uninstall",
+    "import-notes:status": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts status"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.4",

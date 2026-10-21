@@ -6,7 +6,9 @@
   import type { EditorContext } from '../editor/context'
   import { refreshLinks } from '../editor/livePreview'
   import { editorExtensions, fromDisk } from '../editor/setup'
+  import { INBOX_DIR } from '../lib/note'
   import Icon from './Icon.svelte'
+  import InboxBar from './InboxBar.svelte'
 
   let host: HTMLDivElement
   let view: EditorView | undefined
@@ -96,6 +98,9 @@
           </div>
         {/if}
       </div>
+      {#if store.selected.path.startsWith(INBOX_DIR)}
+        <InboxBar id={store.selected.id} />
+      {/if}
       <span class="spacer"></span>
       <button
         class="icon-button"

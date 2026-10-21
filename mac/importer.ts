@@ -50,7 +50,8 @@ export interface ImportResult {
   name: string
   /** The note's file in the notes folder, if one was written or already there. */
   path?: string
-  status: 'imported' | 'already-imported' | 'skipped' | 'failed'
+  /** `duplicate`: the same text was already imported from another note. */
+  status: 'imported' | 'already-imported' | 'duplicate' | 'skipped' | 'failed'
   deleted: boolean
   /** Why the note was skipped, failed, or kept in Apple Notes. */
   reason?: string
@@ -120,14 +121,24 @@ async function markdownFiles(root: string, dir = ''): Promise<string[]> {
   return found
 }
 
+interface Imported {
+  /** File of each imported note version, keyed by Apple Notes id and modification time. */
+  versions: Map<string, string>
+  /** File of each imported note, keyed by its text, to catch the same text captured twice. */
+  texts: Map<string, string>
+}
+
+const versionKey = (note: AppleNote) => `${note.id} ${localTimestamp(note.modified)}`
+const textOf = (content: string) => splitFrontmatter(content).body.trim()
+
 /**
- * Notes already imported, keyed by Apple Notes id and modification time. Notes that were filed
- * elsewhere or trashed count too, so they're never imported twice.
+ * Notes already imported. Notes that were filed elsewhere or trashed count too, so they're never
+ * imported twice.
  */
-async function importedNotes(root: string): Promise<Map<string, string>> {
-  const imported = new Map<string, string>()
+async function importedNotes(root: string): Promise<Imported> {
+  const imported: Imported = { versions: new Map(), texts: new Map() }
   for (const rel of await markdownFiles(root)) {
-    // Only the start of the file is needed for the frontmatter.
+    // The start of the file is enough to tell whether it came from Apple Notes.
     const handle = await fs.open(join(root, rel), 'r')
     let head: string
     try {
@@ -138,8 +149,9 @@ async function importedNotes(root: string): Promise<Map<string, string>> {
     }
     const { frontmatter } = splitFrontmatter(head)
     const id = frontmatterValue(frontmatter, 'appleNotesId')
-    const modified = frontmatterValue(frontmatter, 'appleNotesModified')
-    if (id) imported.set(`${id} ${modified ?? ''}`, rel)
+    if (!id) continue
+    imported.versions.set(`${id} ${frontmatterValue(frontmatter, 'appleNotesModified') ?? ''}`, rel)
+    imported.texts.set(textOf(await fs.readFile(join(root, rel), 'utf8')), rel)
   }
   return imported
 }
@@ -175,7 +187,7 @@ export function noteMarkdown(note: AppleNote, title: string, body: string): stri
   ].join('\n').trimEnd() + '\n'
 }
 
-async function importOne(root: string, source: NotesSource, id: string, imported: Map<string, string>, opts: ImportOptions): Promise<ImportResult> {
+async function importOne(root: string, source: NotesSource, id: string, imported: Imported, opts: ImportOptions): Promise<ImportResult> {
   const note = await source.read(id)
   const title = note.name.trim() || `Capture ${localTimestamp(note.created).replace('T', ' ').slice(0, 16).replace(':', '.')}`
   if (note.locked) return { name: title, status: 'skipped', deleted: false, reason: 'locked with a password' }
@@ -190,7 +202,7 @@ async function importOne(root: string, source: NotesSource, id: string, imported
     return { ...result, deleted: true }
   }
 
-  const done = imported.get(`${note.id} ${localTimestamp(note.modified)}`)
+  const done = imported.versions.get(versionKey(note))
   if (done) return deleteIfUnchanged({ name: title, path: done, status: 'already-imported', deleted: false })
 
   const taken = new Set<string>()
@@ -236,6 +248,11 @@ async function importOne(root: string, source: NotesSource, id: string, imported
     })
     const trailing = inline ? '' : attachmentLinks.filter(Boolean).join('\n\n')
     const content = noteMarkdown(note, title, trailing ? `${body}\n\n${trailing}` : body)
+    // The same text captured twice, for example sent to Notes from two devices. Only plain-text
+    // notes are compared; a note's images get new file names, so its text never matches.
+    const same = !images.length && !note.attachmentCount ? imported.texts.get(textOf(content)) : undefined
+    if (same) return deleteIfUnchanged({ name: title, path: same, status: 'duplicate', deleted: false })
+
     const path = freePath(root, INBOX, baseName, '.md', taken)
 
     if (opts.dryRun) return { name: title, path, status: 'imported', deleted: false, reason: 'dry run' }
@@ -254,7 +271,8 @@ async function importOne(root: string, source: NotesSource, id: string, imported
     for (const image of images) {
       if (!(await fs.readFile(join(root, image.rel))).equals(image.data)) throw new Error(`${image.rel} didn't read back as written`)
     }
-    imported.set(`${note.id} ${localTimestamp(note.modified)}`, path)
+    imported.versions.set(versionKey(note), path)
+    imported.texts.set(textOf(content), path)
 
     const result: ImportResult = { name: title, path, status: 'imported', deleted: false }
     if (missing.length) return { ...result, reason: `Apple Notes couldn't export ${missing.join(', ')}; kept there so nothing is lost` }

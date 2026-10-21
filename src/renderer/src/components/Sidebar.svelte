@@ -8,10 +8,11 @@
   import Icon from './Icon.svelte'
   import TagTree from './TagTree.svelte'
 
-  type View = { kind: Exclude<Filter['kind'], 'tag'>; label: string; icon: 'notes' | 'calendar' | 'pin' | 'untagged' | 'todo' }
+  type View = { kind: Exclude<Filter['kind'], 'tag'>; label: string; icon: 'notes' | 'inbox' | 'calendar' | 'pin' | 'untagged' | 'todo' }
 
   const views: View[] = [
     { kind: 'all', label: 'Notes', icon: 'notes' },
+    { kind: 'inbox', label: 'Inbox', icon: 'inbox' },
     { kind: 'daily', label: 'Daily notes', icon: 'calendar' },
     { kind: 'tasks', label: 'Tasks', icon: 'todo' },
     { kind: 'pinned', label: 'Pinned', icon: 'pin' },
@@ -39,6 +40,13 @@
       input.value = ''
       input.blur()
     }
+  }
+
+  /** The number shown beside a view: notes waiting in the Inbox, open tasks. */
+  function countOf(view: View): number {
+    if (view.kind === 'inbox') return store.inboxCount
+    if (view.kind === 'tasks') return store.openTasks.length
+    return 0
   }
 
   function choose(view: View) {
@@ -75,8 +83,8 @@
       <button class="nav-item" class:active={store.mode === 'notes' && store.filter.kind === view.kind} onclick={() => choose(view)}>
         <Icon name={view.icon} />
         <span class="label">{view.label}</span>
-        {#if view.kind === 'tasks' && store.openTasks.length}
-          <span class="count">{store.openTasks.length}</span>
+        {#if countOf(view)}
+          <span class="count">{countOf(view)}</span>
         {/if}
       </button>
     {/each}

@@ -173,11 +173,12 @@ Each phase ends with a check that has to pass before the next one starts.
    - Findings: images come either embedded in the note's HTML or as attachments, which Notes saves without a file extension; the importer handles both. Scanned documents can't be exported by script, so those notes stay in Apple Notes.
    - *Check:* a test note made on the Mac, with formatting, a list and an image, landed in `Inbox/` with its image and moved to Recently Deleted in Apple Notes. ✅ (test folder; Dropbox isn't on the Mac yet)
    - *Check:* a note captured on the iPhone, with a photo, appears in `Dropbox\BT Notes\Inbox` on Windows with its image. ⏳ Needs Dropbox on the Mac.
-10. **Inbox.**
-    - Show new imports.
-    - Tag them, file them, skip duplicates.
-    - The Mac helper runs every few minutes on its own.
-    - *Check:* 10 notes captured on the phone are in the app within 10 minutes, and gone from Apple Notes.
+10. **Inbox.** Built and tested on the Mac, 2026-10-20.
+    - **Inbox** in the sidebar, with a count, lists the notes in `Inbox/`. On an Inbox note, **Tag** adds tags (suggesting ones in use) and **File** moves it to `Notes/` and opens the next.
+    - The importer skips duplicates: the same version of a note, even after it was filed, and the same text captured twice.
+    - `npm run import-notes:install` has launchd run the importer every 5 minutes and at login, logging to `~/Library/Logs/BT Notes/import.log`. A lock keeps a scheduled and a hand-run import from overlapping.
+    - *Check:* notes captured into **Capture** land in the Inbox, a duplicate is skipped, and tagging and filing write the right files. ✅ On the Mac with a test folder: three notes, one a duplicate.
+    - *Check:* 10 notes captured on the phone are in the app within 10 minutes, and gone from Apple Notes. ⏳ Needs the schedule installed and Dropbox on the Mac.
 11. **iPhone app (Capacitor).**
     - Reading first, then editing.
     - Needs the Apple Developer Program ($99 a year) to install through TestFlight.

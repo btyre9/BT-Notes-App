@@ -102,6 +102,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | Toggle | `> [!toggle]- Title` (closed) or `+` (open); click the arrow to open or close it |
 | Daily note | **Daily notes** in the sidebar opens today's note; click a day in the calendar for others |
 | Pin / trash | Buttons at the top right of the editor |
+| Sort the Inbox | **Inbox** in the sidebar lists notes captured in Apple Notes (see [Apple Notes capture](#apple-notes-capture-mac)). Open one, choose **Tag** to add tags (Enter adds each one; existing tags are suggested), then **File** to move it to `Notes/` and open the next |
 
 - **Saving and file names:** notes save automatically. Each file is named after the note's first line, except daily notes, which keep their date (`Daily/2026-10-19.md`).
 - **Links when titles change:** when you change a note's title, links to it in other notes are updated.
@@ -152,8 +153,23 @@ Each note becomes a Markdown file in `Inbox/`, with its images and attachments c
 - **First run:** macOS asks whether Terminal may control Notes. Choose **OK**.
 - **Kept in Apple Notes:** password-locked notes are skipped. A note also stays in Apple Notes if one of its attachments can't be exported (scanned documents can't be), or if it was edited while being imported.
 - **Run twice:** a note that was already imported isn't imported again, even after you've moved its file out of `Inbox/`. If you edit the note in Apple Notes afterwards, the new version is imported as a separate file.
+- **Duplicates:** a note whose text matches one already imported (the same thing captured twice) isn't imported again, and is removed from Apple Notes. Notes with images or attachments are always imported.
 
 It uses the notes folder the app last opened, or `BT_NOTES_ROOT`.
+
+### Every 5 minutes, on its own
+
+```bash
+npm run import-notes:install
+```
+
+This has launchd, the Mac's scheduler, run the import every 5 minutes and at login, quietly in the background. Run it from the copy of BT Notes in your home folder (`~/BT-Notes-App`), not one on an external drive.
+
+- **First scheduled run:** macOS asks whether node may control Notes. Choose **OK**.
+- **What it did:** each import that found notes is listed in `~/Library/Logs/BT Notes/import.log`.
+- **Check or stop it:** `npm run import-notes:status`, `npm run import-notes:uninstall`.
+- **Test folder:** set `BT_NOTES_ROOT` when installing to have the scheduled import use that folder.
+- **After moving the project or updating Node:** run `npm run import-notes:install` again, since the schedule remembers both paths.
 
 ## Development
 

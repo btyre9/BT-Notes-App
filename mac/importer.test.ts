@@ -136,7 +136,31 @@ describe('importNotes', () => {
 
   it('imports an edited version as a new file next to the old one', async () => {
     await importNotes(root, fakeNotes([note()]).source, { keep: true })
-    const [result] = (await importNotes(root, fakeNotes([note({ modified: new Date(2026, 9, 21) })]).source))!
+    const edited = note({ modified: new Date(2026, 9, 21), body: '<div>Groceries</div><div>Milk, eggs #shopping</div>' })
+    const [result] = (await importNotes(root, fakeNotes([edited]).source))!
+    expect(result).toMatchObject({ status: 'imported', path: 'Inbox/Groceries 2.md' })
+  })
+
+  it('skips the same text captured twice and removes the copy from Apple Notes', async () => {
+    await importNotes(root, fakeNotes([note()]).source)
+    const { source, deleted } = fakeNotes([note({ id: 'x-coredata://A/ICNote/p2', created: new Date(2026, 9, 20, 10) })])
+    const [result] = (await importNotes(root, source))!
+    expect(result).toMatchObject({ status: 'duplicate', path: 'Inbox/Groceries.md', deleted: true })
+    expect(readdirSync(join(root, 'Inbox'))).toEqual(['Groceries.md'])
+    expect(deleted).toEqual(['x-coredata://A/ICNote/p2'])
+  })
+
+  it('catches duplicates within one run', async () => {
+    const { source, deleted } = fakeNotes([note(), note({ id: 'x-coredata://A/ICNote/p2' })])
+    const results = (await importNotes(root, source))!
+    expect(results.map((r) => r.status)).toEqual(['imported', 'duplicate'])
+    expect(deleted).toHaveLength(2)
+  })
+
+  it('never treats notes with images as duplicates', async () => {
+    const body = `<div>Groceries</div><div><img src="data:image/png;base64,${PNG.toString('base64')}"/></div>`
+    await importNotes(root, fakeNotes([note({ body })]).source)
+    const [result] = (await importNotes(root, fakeNotes([note({ id: 'x-coredata://A/ICNote/p2', body })]).source))!
     expect(result).toMatchObject({ status: 'imported', path: 'Inbox/Groceries 2.md' })
   })
 
