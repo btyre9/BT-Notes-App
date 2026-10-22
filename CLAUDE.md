@@ -9,10 +9,25 @@ BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images
 - **The drive is exFAT:** macOS writes `._*` files next to anything edited here (gitignored). Delete them before copying files into the clone: `find . -name '._*' -not -path './node_modules/*' -not -path './.git/*' -delete`.
 - **If `npm run dev` says "Electron uninstall":** run `node node_modules/electron/install.js` in the clone.
 - **Run, test, check (in `~/BT-Notes-App`):** `npm run dev`, `npm test`, `npm run check`.
+- **Trying changes in the app:** `BT_NOTES_ROOT=~/BT-Notes-Test npx electron-vite dev --remoteDebuggingPort 9333` opens a test notes folder (with demo boards: Campaign Brief, Spaces, Lines demo, Swatches demo) and lets a script drive the window and take screenshots through the Chrome DevTools Protocol. The user may be clicking around in that window at the same time, so don't assume every change on a test board was yours. Main-process or preload changes need the app restarted.
 
-## Where things stand (2026-10-21)
+## The user's words
 
-- **Built:** phases 0–10 of PLAN.md, the board restyle (floating dock, minimap, zoom controls, hide-sidebar), and inline images in the note editor.
+- **Wall:** what the code and file format call a column (`btColumn`, `kind: 'column'`, `COLUMN`). Say "wall" to the user and in the app's text; keep the code and file names.
+- **Folder:** a board card on a board (a `file` card pointing at a `.canvas`), drawn as a folder.
+- **Toolbar / dock:** the floating row of add-tools at the bottom of a board.
+- **Look:** the user is styling boards after Storyflow (storyflow.so) and Milanote, from screenshots they send.
+
+## Where things stand (2026-10-22)
+
+- **Built:** phases 0–10 of PLAN.md, inline images in the note editor, and a Storyflow-style board look:
+  - minimap, zoom controls and a hide-sidebar button (Ctrl/Cmd+\\)
+  - board cards drawn as folders (the board's image, or its icon on its color), with the sidebar keeping square icons
+  - walls: white (dark grey) rounded panels with a title after a thin colored bar, cards flat inside; spacing in `COLUMN` in `board.ts`
+  - arrow styles (line type, pattern, weight, ends, head shape) from a **Line** menu; stored as `btLine`, `btPattern`, `btWeight`, `btHead`
+  - the dock: drawn icons (`DockIcon.svelte`), hover tooltips, and drag-and-drop of tools onto the board or a wall
+  - link cards with previews (`src/shared/linkPreview.ts`), stored as `btTitle`, `btDescription`, `btImage`, `btSite`; images are cached per device under `Web images` in the app's settings folder and served through `btfile://web/`. GitHub's preview images rate-limit after many requests.
+  - automatic swatch names from the nearest named color (`src/shared/colorNames.ts`, data in `colorNameData.ts`, MIT, credited in `docs/third-party-licenses.md`)
 - **Notes folder:** moving to **personal OneDrive** (`OneDrive/BT Notes`), decided by the user on 2026-10-21 after comparing iCloud, Dropbox, Supabase + Backblaze B2 and OneDrive: it gives the same notes on the Mac, the work laptop and the iPhone, phone capture without the Mac, and a web version on Microsoft Graph with no syncing to build, for about $1.99 a month (100 GB). PLAN.md phase 13 is the move; until it's done, the notes are still in `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). Don't reopen the storage question unless the user does. The Windows work laptop uses a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, saved as its folder choice (2026-10-21). The user chose it for speed after trying iCloud for Windows the same day, whose sign-in had silently expired for six days. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
 - **Apple Notes import:** a launchd job (`com.btyre.btnotes.import`) runs `mac/import-apple-notes.ts` every 5 minutes from `~/BT-Notes-App`, moving notes from the Notes folder **Capture** into `Inbox/`. Log: `~/Library/Logs/BT Notes/import.log`. It finds the notes folder through `src/shared/notesRoot.ts`, so it follows the app's folder.
 
@@ -25,9 +40,9 @@ BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images
 
 The user wants boards to feel interactive like Milanote, not like a FigJam picture. Proposed next, not yet approved:
 1. **Clickable to-do checkboxes on board text cards,** without entering edit mode.
-2. **Link cards with previews:** fetch the page title and preview image for `link` cards.
+2. **Connect several cards at once,** as Storyflow does: in sequence, or to a hub.
 
-Comments and sharing were noted as gaps but are lower priority.
+Comments and sharing were noted as gaps but are lower priority. Link previews are done (2026-10-22).
 
 **Planned 2026-10-21, not started (PLAN.md phases 13–16):** move to personal OneDrive (13), an iPhone Capture Shortcut that saves into `Inbox/` (14), and a web version on Vercel that reads and writes the OneDrive folder through Microsoft Graph (15), with a phone layout (16).
 
