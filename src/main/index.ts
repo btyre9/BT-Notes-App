@@ -162,6 +162,12 @@ function createWindow(): void {
 registerScheme()
 
 app.whenReady().then(async () => {
+  // A built Mac app gets its icon from the app bundle; run from source, the Dock would show
+  // Electron's, so show BT Notes's instead.
+  if (process.platform === 'darwin' && !app.isPackaged) {
+    const icon = join(app.getAppPath(), 'build', 'icon-mac.png')
+    if (existsSync(icon)) app.dock?.setIcon(icon)
+  }
   handleScheme((rel) => vault?.abs(rel) ?? null)
   Menu.setApplicationMenu(buildMenu())
   const root = await savedRoot()
