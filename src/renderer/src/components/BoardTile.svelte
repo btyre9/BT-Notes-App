@@ -3,8 +3,16 @@
   import { isLight } from '../lib/palette'
   import { BOARD_ICONS, DEFAULT_BOARD_ICON, type BoardIcon } from '../lib/boardIcons'
 
-  /** A board's icon on its tile: an image, or a Lucide icon, white on the board's color. */
-  let { icon, size = 40, missing = false }: { icon: BoardIcon; size?: number; missing?: boolean } = $props()
+  /**
+   * A board's icon on its tile: an image, or a Lucide icon, white on the board's color. As a
+   * folder (board cards on a board), the same image or icon fills the folder's front panel.
+   */
+  let {
+    icon,
+    size = 40,
+    missing = false,
+    folder = false,
+  }: { icon: BoardIcon; size?: number; missing?: boolean; folder?: boolean } = $props()
 
   const color = $derived(colorOf(icon.color))
   const name = $derived(icon.icon && Object.hasOwn(BOARD_ICONS, icon.icon) ? icon.icon : DEFAULT_BOARD_ICON)
@@ -32,7 +40,7 @@
   })
 </script>
 
-<div class="board-tile" class:colored={color} class:light={color && isLight(color)} class:missing style:--tile-color={color}>
+{#snippet face()}
   {#if imageUrl && !broken}
     <img src={imageUrl} alt="" draggable="false" onerror={() => (broken = true)} />
   {:else}
@@ -52,4 +60,25 @@
       {/each}
     </svg>
   {/if}
-</div>
+{/snippet}
+
+{#if folder}
+  <!-- Back panel with its tab, a sheet of paper peeking out, then the front panel. -->
+  <div
+    class="board-folder"
+    class:colored={color}
+    class:light={color && isLight(color)}
+    class:image={imageUrl && !broken}
+    class:missing
+    style:--tile-color={color}
+  >
+    <div class="folder-tab"></div>
+    <div class="folder-back"></div>
+    <div class="folder-sheet"></div>
+    <div class="folder-front">{@render face()}</div>
+  </div>
+{:else}
+  <div class="board-tile" class:colored={color} class:light={color && isLight(color)} class:missing style:--tile-color={color}>
+    {@render face()}
+  </div>
+{/if}

@@ -131,15 +131,15 @@ describe('columns', () => {
     }
     layoutColumns(data)
     const [col, a, b] = data.nodes
-    expect([b.x, b.y, b.width]).toEqual([12, 44, 276])
-    expect([a.x, a.y, a.width]).toEqual([12, 44 + 80 + 10, 276])
-    expect(col.height).toBe(44 + 80 + 10 + 50 + 12)
+    expect([b.x, b.y, b.width]).toEqual([14, 48, 272])
+    expect([a.x, a.y, a.width]).toEqual([14, 48 + 80 + 12, 272])
+    expect(col.height).toBe(48 + 80 + 12 + 50 + 14)
   })
 
   it('keeps images in shape', () => {
     const data = { nodes: [column({ btCards: ['img'] }), node({ id: 'img', type: 'file', file: 'Attachments/a.jpg', width: 400, height: 300 })], edges: [] }
     layoutColumns(data)
-    expect([data.nodes[1].width, data.nodes[1].height]).toEqual([276, 207])
+    expect([data.nodes[1].width, data.nodes[1].height]).toEqual([272, 204])
   })
 
   it('works out the order from positions when another app dropped the list', () => {
@@ -152,7 +152,7 @@ describe('columns', () => {
     const data = { nodes: [column({ btCards: ['gone'] })], edges: [] }
     layoutColumns(data)
     expect(data.nodes[0].btCards).toEqual([])
-    expect(data.nodes[0].height).toBe(44 + 64)
+    expect(data.nodes[0].height).toBe(48 + 64)
   })
 
   it('drops cards in where the pointer is, and closes up the column they left', () => {
@@ -167,7 +167,7 @@ describe('columns', () => {
       edges: [],
     }
     layoutColumns(data)
-    // Between a (y 44–94) and b (y 104–154).
+    // Between a (y 48–98) and b (y 110–160).
     expect(dropIntoColumn(data, ['c'], { x: 100, y: 100 })?.id).toBe('col')
     expect(data.nodes[0].btCards).toEqual(['a', 'c', 'b'])
     expect(data.nodes[1].btCards).toEqual([])
@@ -176,7 +176,7 @@ describe('columns', () => {
     expect(data.nodes[0].btCards).toEqual(['a', 'b', 'c'])
     expect(dropIntoColumn(data, ['a'], { x: 2000, y: 2000 })).toBeNull()
     expect(data.nodes[0].btCards).toEqual(['b', 'c'])
-    expect(data.nodes[3].y).toBe(44)
+    expect(data.nodes[3].y).toBe(48)
   })
 })
 
@@ -219,8 +219,8 @@ describe('review fixes', () => {
       data.nodes[0].width = w
       layoutColumns(data, ratios)
     }
-    expect([data.nodes[1].width, data.nodes[1].height]).toEqual([126, 71])
-    expect([data.nodes[2].width, data.nodes[2].height]).toEqual([126, 32])
+    expect([data.nodes[1].width, data.nodes[1].height]).toEqual([122, 69])
+    expect([data.nodes[2].width, data.nodes[2].height]).toEqual([122, 31])
   })
 
   it('does not drop cards into a column that is moving with them', () => {
@@ -236,7 +236,7 @@ describe('review fixes', () => {
     const data = { nodes: [node({ id: 'col', type: 'group', btColumn: true, btCards: ['a', 'a'] }), node({ id: 'a', height: 50 })], edges: [] }
     layoutColumns(data)
     expect(data.nodes[0].btCards).toEqual(['a'])
-    expect(data.nodes[0].height).toBe(44 + 50 + 12)
+    expect(data.nodes[0].height).toBe(48 + 50 + 14)
   })
 
   it('gives repeated or missing card and arrow ids new ones', () => {

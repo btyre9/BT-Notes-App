@@ -27,11 +27,17 @@
 
   /* Boards: a plain canvas, panels a step above it, and floating controls above those. */
   --board-bg: #f1f1f3;
-  --board-column: #e6e6e9;
+  --board-column: #ffffff;
   --board-card: #ffffff;
+  /* Cards stacked in a column: flat, a step off the column's panel. */
+  --column-card: #f4f4f6;
   --board-chrome: rgba(255, 255, 255, 0.94);
   --board-edge: rgba(0, 0, 0, 0.08);
   --board-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  /* Folders without a color or image: a light front on a slightly darker back. */
+  --folder-front: #e7e7ea;
+  --folder-back: #cfcfd5;
+  --folder-sheet: #f7f7f8;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -53,9 +59,13 @@
     --board-bg: #121214;
     --board-column: #1c1c1f;
     --board-card: #252528;
+    --column-card: #28282c;
     --board-chrome: rgba(38, 38, 41, 0.94);
     --board-edge: rgba(255, 255, 255, 0.07);
     --board-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    --folder-front: #44444b;
+    --folder-back: #38383e;
+    --folder-sheet: #d4d4d8;
   }
 }
 
@@ -1249,23 +1259,43 @@ input.board-title:focus {
 /* Columns */
 .card-column {
   overflow: visible;
-  background: color-mix(in srgb, var(--card-color, transparent) 10%, var(--board-column));
+  background: color-mix(in srgb, var(--card-color, transparent) 8%, var(--board-column));
   border-color: var(--card-color, var(--board-edge));
-  border-radius: 14px;
+  border-radius: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+/* The column's title, after a thin bar in the column's color, as in Storyflow. */
+.card-column .card-group-label {
+  /* Static, not the plain group's label above the box; the bar below is placed on the card. */
+  position: static;
+  height: 48px;
+  padding: 16px 16px 0 26px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+.card-column .card-group-label::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 18px;
+  width: 2px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--card-color, var(--text-faint));
+}
+/* Cards in a column sit flat on its panel: no border or shadow, softer corners. Cards with a
+   color, filled shapes and folders keep their own look. */
+.card.in-column {
+  border-radius: 12px;
   box-shadow: none;
 }
-/* Small capitals, as section labels rather than titles, so the cards stand out. */
-.card-column .card-group-label {
-  position: static;
-  height: 44px;
-  padding: 17px 14px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+.card.in-column:not(.colored, .filled, .card-board) {
+  border-color: transparent;
+  background: var(--column-card);
 }
 .group-label-input {
   font: inherit;
@@ -1283,18 +1313,18 @@ input.board-title:focus {
 }
 .card-column .group-label-input {
   display: block;
-  width: calc(100% - 16px);
+  width: calc(100% - 20px);
   height: 30px;
-  margin: 7px 8px;
+  margin: 9px 10px;
   padding: 0 6px;
 }
 .column-empty {
-  margin: 0 12px;
+  margin: 0 14px;
   height: 52px;
   display: grid;
   place-items: center;
   border: 1.5px dashed var(--card-border);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--text-faint);
 }
 .card.drop-target {
@@ -1648,11 +1678,80 @@ input.arrow-label {
   border: 0;
   box-shadow: none;
 }
-.card-board .board-tile {
+.card-board .board-tile,
+.card-board .board-folder {
   flex: 1;
   min-height: 0;
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* Board cards as folders: a back panel with a tab, a sheet of paper, and a front panel holding
+   the board's image or its icon on its color. Sizes are fractions of the card, so any card
+   size keeps the shape. */
+.board-folder {
+  --front: var(--folder-front);
+  --back: var(--folder-back);
+  position: relative;
+  color: var(--text-muted);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+}
+.board-folder.colored {
+  --front: var(--tile-color);
+  --back: color-mix(in srgb, var(--tile-color) 72%, #000);
+  color: #fff;
+}
+/* Behind an image, a neutral back reads as the folder, like Storyflow's photo folders. */
+.board-folder.image {
+  --back: var(--folder-back);
+}
+.folder-tab,
+.folder-back,
+.folder-sheet,
+.folder-front {
+  position: absolute;
+}
+.folder-tab {
+  top: 0;
+  left: 0;
+  width: 42%;
+  height: 20%;
+  border-radius: 7px 7px 0 0;
+  background: var(--back);
+  clip-path: polygon(0 0, 80% 0, 100% 100%, 0 100%);
+}
+.folder-back {
+  inset: 9% 0 0 0;
+  border-radius: 0 9px 9px 9px;
+  background: var(--back);
+}
+.folder-sheet {
+  top: 15%;
+  left: 6%;
+  right: 6%;
+  height: 30%;
+  border-radius: 4px;
+  background: var(--folder-sheet);
+}
+.folder-front {
+  inset: 21% 0 0 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 9px;
+  background: var(--front);
+  /* A faint top edge, so the front reads as a separate panel. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.folder-front img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.board-folder.missing .folder-front {
+  outline: 1.5px dashed var(--text-faint);
+  outline-offset: -1.5px;
+}
+.board-folder.missing {
+  opacity: 0.6;
 }
 .board-name {
   flex: none;

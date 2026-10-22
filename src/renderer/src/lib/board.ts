@@ -293,7 +293,7 @@ export function freeSpot(nodes: Rect[], cx: number, cy: number, width: number, h
 // If `btCards` is missing, for example after the board was saved by another app, the cards inside
 // the column are taken in order from top to bottom.
 
-export const COLUMN = { pad: 12, header: 44, gap: 10, empty: 64 }
+export const COLUMN = { pad: 14, header: 48, gap: 12, empty: 64 }
 
 export function isColumn(node: CanvasNode): boolean {
   return node.type === 'group' && node.btColumn === true

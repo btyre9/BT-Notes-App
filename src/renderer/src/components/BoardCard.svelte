@@ -19,6 +19,7 @@
     editing,
     dropTarget = false,
     linkTarget = false,
+    inColumn = false,
     autosize = false,
     onpointerdown,
     onresizestart,
@@ -35,6 +36,8 @@
     dropTarget?: boolean
     /** The card an arrow being drawn would point to. */
     linkTarget?: boolean
+    /** Stacked in a column, where cards sit flat on the column's panel. */
+    inColumn?: boolean
     /** Just edited: report the height the rendered text needs, so the card can grow to fit. */
     autosize?: boolean
     onpointerdown: (event: PointerEvent) => void
@@ -301,6 +304,7 @@
   class:selected
   class:drop-target={dropTarget}
   class:link-target={linkTarget}
+  class:in-column={inColumn}
   class:colored={color}
   class:filled
   class:circle={isCircle(node)}
@@ -390,12 +394,14 @@
       {/if}
     </div>
   {:else if kind === 'board'}
-    <!-- Like Milanote: the board's icon on a tile, with its name underneath. A color picked for
-         this card recolors its tile; without one, the tile has the board's own color. -->
+    <!-- Like Storyflow: a folder with the board's image, or its icon on its color, and its name
+         underneath. A color picked for this card recolors the folder; without one, it has the
+         board's own color. -->
     <BoardTile
       icon={color ? { ...boardIconOf(linked?.data), color } : boardIconOf(linked?.data)}
-      size={Math.max(24, Math.min(node.width, node.height - 40) * 0.4)}
+      size={Math.max(22, Math.min(node.width, node.height - 40) * 0.32)}
       missing={!linked}
+      folder
     />
     <div class="board-name" title={linked ? `${linked.data.nodes.length} cards` : 'Missing board'}>
       {boardName(node.file ?? '')}

@@ -288,7 +288,7 @@
   }
 
   function addBoardCard(path: string) {
-    addNode({ type: 'file', file: path, width: 120, height: 158 })
+    addNode({ type: 'file', file: path, width: 150, height: 160 })
   }
 
   function addNewBoard(name: string) {
@@ -980,6 +980,7 @@
         editing={editingId === node.id}
         dropTarget={dropColumnId === node.id}
         linkTarget={connecting?.targetId === node.id}
+        inColumn={inColumns.has(node.id)}
         onpointerdown={(e) => onCardDown(e, node)}
         onresizestart={(e) => onResizeDown(e, node)}
         onconnectstart={(e, side) => onConnectDown(e, node, side)}

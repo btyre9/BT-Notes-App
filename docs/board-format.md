@@ -26,7 +26,7 @@ The easiest way for Claude to change boards is the MCP server (see the README); 
 | Text | `"type": "text"`, `"text"`: Markdown. Tables are Markdown tables; charts and diagrams are a ```` ```mermaid ```` block |
 | Note | `"type": "file"`, `"file": "Notes/Plan.md"` |
 | Image, PDF, video, other file | `"type": "file"`, `"file": "Attachments/kitchen.jpg"`. Copy the file into `Attachments/` first |
-| Another board | `"type": "file"`, `"file": "Boards/Ideas.canvas"`. Shown as an icon tile with the name under it; 120 × 158 fits it |
+| Another board | `"type": "file"`, `"file": "Boards/Ideas.canvas"`. Shown as a folder with the name under it; 150 × 160 fits it |
 | Link | `"type": "link"`, `"url": "https://…"` |
 | Group | `"type": "group"`, `"label"` |
 | Column | A group with `"btColumn": true` and `"btCards": [card ids, top to bottom]` |
@@ -37,7 +37,7 @@ Every card has `id`, `type`, `x`, `y`, `width` and `height`, and may have `color
 
 ### Columns
 
-The app stacks a column's cards 12 units inside its left edge, starting 44 units below its top, 10 units apart, at the column's width minus 24, and fits the column's height to them. When writing a file directly, either lay the cards out that way or just list them in `btCards`; the app lays them out the next time the board changes. A card is in one column at most.
+The app stacks a column's cards 14 units inside its left edge, starting 48 units below its top, 12 units apart, at the column's width minus 28, and fits the column's height to them. When writing a file directly, either lay the cards out that way or just list them in `btCards`; the app lays them out the next time the board changes. A card is in one column at most.
 
 ## Arrows (`edges`)
 

@@ -314,7 +314,7 @@ async function makeCard(folder: NotesFolder, data: CanvasData, spec: NewCard): P
       return { ...base, type: 'link', url: spec.url, width: 280, height: 80 }
     case 'board': {
       const file = await folder.findBoard(spec.path ?? spec.name ?? '')
-      return { ...base, type: 'file', file, width: 120, height: 158 }
+      return { ...base, type: 'file', file, width: 150, height: 160 }
     }
     case 'swatch': {
       const hex = colorOf(spec.color)
