@@ -54,6 +54,10 @@ The app stacks a column's cards 14 units inside its left edge, starting 48 units
   - `btWeight`: `"thin"`, `"medium"` (default) or `"thick"`
   - `btHead`: `"filled"` (default), `"closed"` (an outline) or `"open"` (two strokes)
 
+## Canvas (`btCanvas`)
+
+At the top level of a board's file, optional: `{ "theme": "light" | "dark" | "nord", "pattern": "dots" | "grid" | "lines" | "graph" }`. Leave a field out for the default: the system's light or dark theme, and no pattern.
+
 ## Board icon (`btIcon`)
 
 At the top level of a board's own file: `icon` is a [Lucide](https://lucide.dev) icon name from the app's set (see `src/renderer/src/lib/boardIcons.ts`), `color` is the tile color, and `image` is a path such as `Attachments/cover.jpg` that's used instead of the icon.

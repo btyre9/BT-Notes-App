@@ -6,7 +6,10 @@ import {
   duplicate,
   edgeShape,
   edgeStyle,
+  canvasLookOf,
+  setCanvasLook,
   setEdgeStyle,
+  type CanvasData,
   type CanvasEdge,
   facingSides,
   freeSpot,
@@ -206,6 +209,23 @@ describe('arrows', () => {
     expect(shape.startHead).toBe('')
     expect(shape.endHead.startsWith('M300,25 ')).toBe(true)
     expect(shape.mid).toEqual({ x: 200, y: 25 })
+  })
+})
+
+describe('canvas look', () => {
+  it('defaults to the system theme and no pattern, and stores only what differs', () => {
+    const data = { nodes: [], edges: [] } as CanvasData
+    expect(canvasLookOf(data)).toEqual({ theme: 'system', pattern: 'none' })
+    setCanvasLook(data, { theme: 'nord' })
+    expect(data.btCanvas).toEqual({ theme: 'nord' })
+    setCanvasLook(data, { pattern: 'dots' })
+    expect(canvasLookOf(data)).toEqual({ theme: 'nord', pattern: 'dots' })
+    setCanvasLook(data, { theme: 'system', pattern: 'none' })
+    expect('btCanvas' in data).toBe(false)
+  })
+
+  it('ignores values it does not know', () => {
+    expect(canvasLookOf({ nodes: [], edges: [], btCanvas: { theme: 'neon', pattern: 7 } })).toEqual({ theme: 'system', pattern: 'none' })
   })
 })
 

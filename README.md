@@ -90,6 +90,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | Color swatch | **Color** in the toolbar. Double-click it to set the color with the color picker, a hex code, or the eyedropper (pick a color from anything on screen, such as a photo on the board), and give it a name |
 | Wall | **Wall** in the toolbar. Drag cards onto it and they stack top to bottom; drag one off and the rest close up. Double-click the wall to rename it. (In the board file a wall is a JSON Canvas group with `btColumn`.) |
 | Arrow | Hover a card and drag from the dot on one of its sides onto another card. Double-click an arrow to label it; click it to select, color or delete it |
+| Canvas | **Canvas** at the top right of a board: a theme (System, which follows the Mac; Light; Dark; or Nord) and a background pattern (dots, grid, lines or graph paper). Each board keeps its own |
 | Arrow style | Select one or more arrows and choose **Line**: curved, straight or right-angled; solid, dashed or dotted; thin, medium or thick; arrowheads at either end, both or none; filled, outlined or open heads |
 | Open a board card | Double-click it. **←** goes back |
 | Board icon | Select a board card and choose **Icon**, or click the icon left of a board's name. Pick a color and an icon, or **Use an image…**. On a board, a board card is a folder showing that image or icon, with the board's name underneath |

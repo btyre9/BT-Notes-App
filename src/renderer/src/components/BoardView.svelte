@@ -27,6 +27,9 @@
     PDF_SIZE,
     PRESET_COLORS,
     edgeStyle,
+    canvasLookOf,
+    setCanvasLook,
+    type CanvasLook,
     setEdgeStyle,
     type EdgeStyle,
     removeNodes,
@@ -46,6 +49,7 @@
   import CardPicker from './CardPicker.svelte'
   import Icon from './Icon.svelte'
   import { colorName, swatchNameAfter } from '../../../shared/colorNames'
+  import CanvasPicker from './CanvasPicker.svelte'
   import DockIcon, { type DockTool } from './DockIcon.svelte'
   import LineStylePicker from './LineStylePicker.svelte'
   import Minimap from './Minimap.svelte'
@@ -131,6 +135,22 @@
   const shownInColumns = $derived(shown.filter((n) => n.type !== 'group' && inColumns.has(n.id)))
   const shownCards = $derived(shown.filter((n) => n.type !== 'group' && !inColumns.has(n.id)))
 
+  /** This board's canvas theme and pattern. */
+  const look = $derived(canvasLookOf(board?.data))
+  let canvasOpen = $state(false)
+
+  function setLook(change: Partial<CanvasLook>) {
+    boards.update((data) => setCanvasLook(data, change))
+  }
+
+  /** The pattern's spacing on screen: 24 board units, doubled as you zoom out so it stays open. */
+  const patternStep = $derived(24 * view.zoom * 2 ** Math.max(0, Math.ceil(Math.log2(12 / (24 * view.zoom)))))
+  const patternSize = $derived(
+    look.pattern === 'graph'
+      ? `${patternStep}px ${patternStep}px, ${patternStep}px ${patternStep}px, ${patternStep * 5}px ${patternStep * 5}px, ${patternStep * 5}px ${patternStep * 5}px`
+      : `${patternStep}px ${patternStep}px`,
+  )
+
   /** Line thickness for each weight, as a multiple of a medium line. */
   const WEIGHTS: Record<EdgeStyle['weight'], number> = { thin: 0.6, medium: 1, thick: 1.8 }
 
@@ -212,6 +232,7 @@
     iconFor = null
     paletteOpen = false
     lineStyleOpen = false
+    canvasOpen = false
   })
 
   // A board card's icon picker belongs to that card; selecting something else closes it.
@@ -928,9 +949,10 @@
 
   function onKeyDown(event: KeyboardEvent) {
     if (iconFor) return
-    if ((paletteOpen || lineStyleOpen) && event.key === 'Escape') {
+    if ((paletteOpen || lineStyleOpen || canvasOpen) && event.key === 'Escape') {
       paletteOpen = false
       lineStyleOpen = false
+      canvasOpen = false
       event.preventDefault()
       return
     }
@@ -1013,6 +1035,7 @@
     if (iconFor && !(e.target as Element).closest('.icon-picker-anchor, .icon-toggle')) iconFor = null
     if (paletteOpen && !(e.target as Element).closest('.palette-anchor, .palette-toggle')) paletteOpen = false
     if (lineStyleOpen && !(e.target as Element).closest('.line-style-anchor, .line-style-toggle')) lineStyleOpen = false
+    if (canvasOpen && !(e.target as Element).closest('.canvas-anchor, .canvas-toggle')) canvasOpen = false
   }}
 />
 
@@ -1027,7 +1050,7 @@
   </div>
 {/snippet}
 
-<main class="board-pane">
+<main class="board-pane" data-canvas={look.theme === 'system' ? undefined : look.theme}>
   <header class="board-toolbar">
     <button
       class="icon-button"
@@ -1061,6 +1084,16 @@
       {/key}
     {/if}
     <span class="spacer"></span>
+    <div class="insert">
+      <button class="text-button canvas-toggle" title="Canvas theme and pattern" aria-expanded={canvasOpen} onclick={() => (canvasOpen = !canvasOpen)}>
+        <Icon name="canvas" /> <span class="button-label">Canvas</span>
+      </button>
+      {#if canvasOpen}
+        <div class="picker canvas-anchor">
+          <CanvasPicker value={look} onchange={setLook} />
+        </div>
+      {/if}
+    </div>
     {#if selected.size}
       <div class="swatches" role="group" aria-label="Card color">
         <button class="swatch swatch-none" title="No color" aria-label="No color" onclick={() => setColor(null)}></button>
@@ -1122,8 +1155,10 @@
   </header>
 
   <div
-    class="board-viewport"
+    class="board-viewport pattern-{look.pattern}"
     class:dropping
+    style:background-size={look.pattern === 'none' ? undefined : patternSize}
+    style:background-position={look.pattern === 'none' ? undefined : `${view.x}px ${view.y}px`}
     bind:this={viewport}
     bind:clientWidth={width}
     bind:clientHeight={height}

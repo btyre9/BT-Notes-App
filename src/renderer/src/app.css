@@ -45,6 +45,8 @@
   --dock-card: #e4e4e7;
   --tip-bg: #1f1f23;
   --tip-text: #ffffff;
+  /* The canvas pattern's dots and lines. */
+  --board-pattern: rgba(0, 0, 0, 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -79,7 +81,118 @@
     --dock-card: #52525b;
     --tip-bg: #f4f4f5;
     --tip-text: #18181b;
+    --board-pattern: rgba(255, 255, 255, 0.09);
   }
+}
+
+
+/* A board's own canvas theme (btCanvas.theme), over the Mac's light or dark setting. It covers the
+   board area only: canvas, walls, cards, toolbar, minimap. The sidebar and a note open beside the
+   board follow the system. Light and Dark repeat the values above; Nord is the Nord palette
+   (nordtheme.com), with its frost blue as the accent. */
+.board-pane[data-canvas='light'] {
+  color-scheme: light;
+  color: var(--text);
+  --sidebar-bg: #2e2f31;
+  --sidebar-text: #c8c8ca;
+  --sidebar-muted: #8c8c90;
+  --list-bg: #f7f7f7;
+  --list-border: #e4e4e4;
+  --list-selected: #ffffff;
+  --editor-bg: #ffffff;
+  --text: #2d2d2f;
+  --text-muted: #77777b;
+  --text-faint: #b4b4b8;
+  --code-bg: #f2f2f2;
+  --tag-bg: #f0f0f0;
+  --tag-text: #77777b;
+  --board-bg: #f1f1f3;
+  --board-column: #ffffff;
+  --board-card: #ffffff;
+  --column-card: #f4f4f6;
+  --board-chrome: rgba(255, 255, 255, 0.94);
+  --board-edge: rgba(0, 0, 0, 0.08);
+  --board-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  --folder-front: #e7e7ea;
+  --folder-back: #cfcfd5;
+  --folder-sheet: #f7f7f8;
+  --dock-tile: #ffffff;
+  --dock-tile-edge: #d4d4d8;
+  --dock-ink: #27272a;
+  --dock-card: #e4e4e7;
+  --tip-bg: #1f1f23;
+  --tip-text: #ffffff;
+  --board-pattern: rgba(0, 0, 0, 0.12);
+}
+.board-pane[data-canvas='dark'] {
+  color-scheme: dark;
+  color: var(--text);
+  --sidebar-bg: #1a1a1c;
+  --sidebar-text: #bdbdc0;
+  --sidebar-muted: #7d7d82;
+  --list-bg: #232325;
+  --list-border: #333336;
+  --list-selected: #2e2e31;
+  --editor-bg: #1e1e20;
+  --text: #dcdcde;
+  --text-muted: #9a9a9f;
+  --text-faint: #5c5c61;
+  --code-bg: #2a2a2d;
+  --tag-bg: #333336;
+  --tag-text: #a8a8ad;
+  --board-bg: #121214;
+  --board-column: #1c1c1f;
+  --board-card: #252528;
+  --column-card: #28282c;
+  --board-chrome: rgba(38, 38, 41, 0.94);
+  --board-edge: rgba(255, 255, 255, 0.07);
+  --board-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --folder-front: #44444b;
+  --folder-back: #38383e;
+  --folder-sheet: #d4d4d8;
+  --dock-tile: #3a3a40;
+  --dock-tile-edge: #52525b;
+  --dock-ink: #f4f4f5;
+  --dock-card: #52525b;
+  --tip-bg: #f4f4f5;
+  --tip-text: #18181b;
+  --board-pattern: rgba(255, 255, 255, 0.09);
+}
+.board-pane[data-canvas='nord'] {
+  color-scheme: dark;
+  color: var(--text);
+  --accent: #88c0d0;
+  --accent-soft: rgba(136, 192, 208, 0.18);
+  --sidebar-bg: #2e3440;
+  --sidebar-text: #d8dee9;
+  --sidebar-muted: #8e98aa;
+  --list-bg: #3b4252;
+  --list-border: #434c5e;
+  --list-selected: #434c5e;
+  --editor-bg: #2e3440;
+  --text: #eceff4;
+  --text-muted: #aeb7c7;
+  --text-faint: #616e88;
+  --code-bg: #434c5e;
+  --tag-bg: #434c5e;
+  --tag-text: #d8dee9;
+  --board-bg: #2e3440;
+  --board-column: #3b4252;
+  --board-card: #434c5e;
+  --column-card: #434c5e;
+  --board-chrome: rgba(59, 66, 82, 0.95);
+  --board-edge: rgba(216, 222, 233, 0.08);
+  --board-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --folder-front: #4c566a;
+  --folder-back: #434c5e;
+  --folder-sheet: #d8dee9;
+  --dock-tile: #434c5e;
+  --dock-tile-edge: #4c566a;
+  --dock-ink: #eceff4;
+  --dock-card: #4c566a;
+  --tip-bg: #eceff4;
+  --tip-text: #2e3440;
+  --board-pattern: rgba(216, 222, 233, 0.1);
 }
 
 * {
@@ -918,6 +1031,25 @@ input.board-title:focus {
   user-select: none;
   background: var(--board-bg);
 }
+/* Canvas patterns (btCanvas.pattern). Their size and position follow the board's zoom and pan,
+   set on the element by the board view. */
+.board-viewport.pattern-dots {
+  background-image: radial-gradient(var(--board-pattern) 1.3px, transparent 1.6px);
+}
+.board-viewport.pattern-grid {
+  background-image: linear-gradient(var(--board-pattern) 1px, transparent 1px), linear-gradient(90deg, var(--board-pattern) 1px, transparent 1px);
+}
+.board-viewport.pattern-lines {
+  background-image: linear-gradient(var(--board-pattern) 1px, transparent 1px);
+}
+/* Graph paper: a fine grid with a stronger line every fifth square. */
+.board-viewport.pattern-graph {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--board-pattern) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--board-pattern) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(var(--board-pattern) 1.5px, transparent 1.5px),
+    linear-gradient(90deg, var(--board-pattern) 1.5px, transparent 1.5px);
+}
 .board-viewport.dropping {
   box-shadow: inset 0 0 0 3px var(--accent);
 }
@@ -1548,6 +1680,108 @@ input.board-title:focus {
 }
 .arrow-head.head-filled {
   stroke: none;
+}
+
+/* The Canvas picker: theme and pattern previews. */
+.canvas-anchor {
+  width: auto;
+  padding: 10px 12px 12px;
+}
+.canvas-section {
+  margin: 2px 2px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.canvas-section + .canvas-options + .canvas-section {
+  margin-top: 12px;
+}
+.canvas-options {
+  display: flex;
+  gap: 6px;
+}
+.canvas-option {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  width: 64px;
+  padding: 6px 4px 5px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.canvas-option:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+.canvas-option.selected {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.theme-preview,
+.pattern-preview {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--board-edge);
+  overflow: hidden;
+}
+/* A small card on each theme's canvas. */
+.theme-preview span {
+  width: 24px;
+  height: 14px;
+  border-radius: 3px;
+}
+.theme-preview-light {
+  background: #f1f1f3;
+}
+.theme-preview-light span {
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.theme-preview-dark {
+  background: #121214;
+}
+.theme-preview-dark span {
+  background: #2a2a2e;
+}
+.theme-preview-nord {
+  background: #2e3440;
+}
+.theme-preview-nord span {
+  background: #434c5e;
+  border-top: 2px solid #88c0d0;
+}
+.theme-preview-system {
+  background: linear-gradient(135deg, #f1f1f3 50%, #121214 50%);
+}
+.theme-preview-system span {
+  background: linear-gradient(135deg, #ffffff 50%, #2a2a2e 50%);
+}
+.pattern-preview {
+  background-color: var(--board-bg);
+  background-size: 8px 8px;
+}
+.pattern-preview.pattern-dots {
+  background-image: radial-gradient(color-mix(in srgb, var(--text) 45%, transparent) 1px, transparent 1.2px);
+}
+.pattern-preview.pattern-grid {
+  background-image: linear-gradient(color-mix(in srgb, var(--text) 25%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--text) 25%, transparent) 1px, transparent 1px);
+}
+.pattern-preview.pattern-lines {
+  background-image: linear-gradient(color-mix(in srgb, var(--text) 25%, transparent) 1px, transparent 1px);
+}
+.pattern-preview.pattern-graph {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--text) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--text) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--text) 35%, transparent) 1px, transparent 1px);
+  background-size: 6px 6px, 6px 6px, 18px 18px, 18px 18px;
 }
 
 /* The Line picker for selected arrows: rows of small drawings of each option. */

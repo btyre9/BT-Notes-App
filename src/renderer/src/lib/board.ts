@@ -424,6 +424,36 @@ export function facingSides(a: Rect, b: Rect): [Side, Side] {
   return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom']
 }
 
+/** A value if it's one of the allowed ones, else the fallback. */
+const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback
+
+// ---- Canvas look ----
+// A board's canvas theme and background pattern, kept in its file as `btCanvas` like its icon, so
+// each board can look its own way on every device. Left out when both are the default.
+
+export const CANVAS_THEMES = ['system', 'light', 'dark', 'nord'] as const
+export const CANVAS_PATTERNS = ['none', 'dots', 'grid', 'lines', 'graph'] as const
+
+export interface CanvasLook {
+  theme: (typeof CANVAS_THEMES)[number]
+  pattern: (typeof CANVAS_PATTERNS)[number]
+}
+
+export function canvasLookOf(data: CanvasData | undefined): CanvasLook {
+  const raw = (data?.btCanvas ?? {}) as Record<string, unknown>
+  return { theme: pick(raw.theme, CANVAS_THEMES, 'system'), pattern: pick(raw.pattern, CANVAS_PATTERNS, 'none') }
+}
+
+export function setCanvasLook(data: CanvasData, change: Partial<CanvasLook>): void {
+  const look = { ...canvasLookOf(data), ...change }
+  const stored = Object.fromEntries(
+    Object.entries({ theme: look.theme === 'system' ? undefined : look.theme, pattern: look.pattern === 'none' ? undefined : look.pattern }).filter(([, v]) => v),
+  )
+  if (Object.keys(stored).length) data.btCanvas = stored
+  else delete data.btCanvas
+}
+
 // ---- Arrow styles ----
 // Stored on the arrow as btLine, btPattern, btWeight and btHead, like btColumn on columns, and
 // left out when they're the default so a plain arrow stays plain JSON Canvas. Arrowheads use
@@ -442,9 +472,6 @@ export interface EdgeStyle {
   head: (typeof HEAD_SHAPES)[number]
   ends: (typeof ARROW_ENDS)[number]
 }
-
-const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
-  (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback
 
 /** An arrow's style, with the defaults for anything not set: a medium, solid curve with a filled head at the end. */
 export function edgeStyle(edge: CanvasEdge): EdgeStyle {
