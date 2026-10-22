@@ -81,6 +81,7 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 | Toolbar | The tools at the bottom of a board. Click one to add it in the middle of the window, or drag it to where it should go; dropped on a wall, it goes onto the wall. Hover a tool to see its name |
 | New folder | **Board** (the blue folder) in the toolbar adds one as a card on the board you're on; dragging it out makes a new one where you drop it |
 | Find your way | The sidebar has **Home**, your **Favorites** (star a folder next to its name) and **Recent** folders. Above a board, the path from Home (Home › Spaces › …) goes back up a level with a click |
+| Find a folder | **⌘K** (**Ctrl+K** on Windows), **Find folder…** at the top of the sidebar, or **View → Find Folder…**. Type part of a name; each result shows where the folder sits, and folders that aren't on any board say so |
 | Text card | Double-click an empty spot, or **Text** in the toolbar. Double-click a card to edit it. Text cards are Markdown: `**bold**`, lists, `- [ ]` tasks, tables |
 | Table, chart or diagram | **Chart** in the toolbar: table, pie, bar or line chart, flowchart, timeline. Double-click the card to change it. Charts are [Mermaid](https://mermaid.js.org) code in a ```` ```mermaid ```` block; a mistake shows what's wrong |
 | Note card | **Note** in the toolbar: pick a note or create one. Double-click the card to open the note beside the board |

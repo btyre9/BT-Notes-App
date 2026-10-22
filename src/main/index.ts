@@ -123,6 +123,7 @@ function buildMenu(): Menu {
       label: 'View',
       submenu: [
         { label: 'Search Notes', accelerator: 'CmdOrCtrl+Shift+F', click: () => sendMenu('search') },
+        { label: 'Find Folder…', accelerator: 'CmdOrCtrl+K', click: () => sendMenu('find-folder') },
         { type: 'separator' },
         { role: 'reload' },
         { role: 'toggleDevTools' },

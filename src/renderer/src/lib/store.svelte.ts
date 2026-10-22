@@ -100,6 +100,8 @@ class NotesStore {
   mode = $state<'board' | 'notes'>('board')
   /** In board mode, whether the selected note is open in a panel beside the board. */
   panelOpen = $state(false)
+  /** Whether the Find Folder search is open. */
+  folderSearch = $state(false)
   /** In board mode, whether the sidebar is hidden so the board fills the window. */
   sidebarHidden = $state(readFlag(SIDEBAR_KEY))
   selectedId = $state<string | null>(null)
@@ -584,6 +586,7 @@ class NotesStore {
     if (action === 'new-note' && this.mode === 'board') boards.newNoteRequest++
     else if (action === 'new-note') this.createNote()
     else if (action === 'choose-folder') void this.chooseFolder()
+    else if (action === 'find-folder') this.folderSearch = true
     else if (action === 'search') {
       this.mode = 'notes'
       this.searchFocus++

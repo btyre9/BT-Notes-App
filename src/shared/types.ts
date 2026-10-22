@@ -42,7 +42,7 @@ export interface VaultApi {
   onEvent(callback: (event: VaultEvent) => void): () => void
 }
 
-export type MenuAction = 'new-note' | 'choose-folder' | 'search'
+export type MenuAction = 'new-note' | 'choose-folder' | 'search' | 'find-folder'
 
 /** A note save: write `content` to `path`, first moving the file from `renameFrom` if set. */
 export interface PendingSave {

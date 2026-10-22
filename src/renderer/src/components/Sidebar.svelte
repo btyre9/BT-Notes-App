@@ -19,6 +19,9 @@
     { kind: 'untagged', label: 'Untagged', icon: 'untagged' },
   ]
 
+  /** The Find Folder shortcut as this computer writes it. */
+  const findShortcut = /Mac/i.test(navigator.platform) ? '⌘K' : 'Ctrl+K'
+
   function openBoard(path: string) {
     store.mode = 'board'
     boards.open(path)
@@ -48,6 +51,11 @@
     </button>
   {/snippet}
   <div class="views folder-home">
+    <button class="nav-item find-folder" title="Find a folder by name ({findShortcut})" onclick={() => (store.folderSearch = true)}>
+      <Icon name="search" />
+      <span class="label">Find folder…</span>
+      <kbd>{findShortcut}</kbd>
+    </button>
     {#if boards.get(HOME_BOARD)}{@render folderRow(boards.get(HOME_BOARD)!, 'Home')}{/if}
   </div>
   {#if boards.favorites.length}

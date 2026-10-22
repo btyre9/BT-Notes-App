@@ -2619,3 +2619,95 @@ input.arrow-label {
 .nav-item.drop-target .count {
   color: #fff;
 }
+
+/* Find Folder (⌘K): a search box over the window, and its shortcut in the sidebar. */
+.find-folder kbd {
+  margin-left: auto;
+  font: inherit;
+  font-size: 11px;
+  color: var(--sidebar-muted);
+}
+.folder-search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 14vh;
+  background: rgba(0, 0, 0, 0.28);
+}
+.folder-search {
+  width: min(580px, calc(100vw - 48px));
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid var(--list-border);
+  background: var(--editor-bg);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: var(--text);
+}
+.folder-search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--list-border);
+  color: var(--text-muted);
+}
+.folder-search-field input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  outline: none;
+}
+.folder-search-field kbd,
+.find-folder kbd {
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+  font: inherit;
+  font-size: 11px;
+}
+.folder-results {
+  max-height: 380px;
+  padding: 6px;
+  overflow-y: auto;
+}
+.folder-result {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.folder-result.active {
+  background: var(--accent-soft);
+}
+.folder-result-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.folder-result-place {
+  justify-self: end;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* A folder that no board holds: findable here, so it isn't lost. */
+.folder-result-place.stray {
+  font-style: italic;
+}
+.folder-search-empty {
+  margin: 16px;
+  text-align: center;
+  color: var(--text-muted);
+}

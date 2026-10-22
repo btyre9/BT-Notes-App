@@ -101,7 +101,7 @@ class BoardsStore {
   private viewTimer: ReturnType<typeof setTimeout> | undefined
   canGoBack = $state(false)
   /** Folders opened on this device, newest first. */
-  private recent = $state<string[]>([])
+  recent = $state<string[]>([])
 
   list = $derived(
     Object.values(this.boards).sort((a, b) =>

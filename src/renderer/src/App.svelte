@@ -1,5 +1,6 @@
 <script lang="ts">
   import BoardView from './components/BoardView.svelte'
+  import FolderSearch from './components/FolderSearch.svelte'
   import Editor from './components/Editor.svelte'
   import NoteList from './components/NoteList.svelte'
   import Sidebar from './components/Sidebar.svelte'
@@ -47,6 +48,10 @@
       <Editor />
     {/if}
   </div>
+{/if}
+
+{#if store.ready && store.root && store.folderSearch}
+  <FolderSearch onclose={() => (store.folderSearch = false)} />
 {/if}
 
 {#if store.error || boards.error}
