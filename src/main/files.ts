@@ -11,7 +11,10 @@ import { app, nativeImage, net, protocol } from 'electron'
  *   btfile://file/Attachments/kitchen.jpg          the file itself
  *   btfile://thumb/Attachments/kitchen.jpg?w=256   a preview at most 256 px wide
  *   btfile://pdfjs/wasm/openjpeg.wasm              data files pdf.js needs for scans and fonts
+ *   btfile://web/?u=https%3A%2F%2F…                a link card's preview image from the web
  * Previews come from the operating system's thumbnailer and are cached outside the synced folder.
+ * Web images are downloaded once and cached there too, so the window never loads anything from
+ * the web itself.
  */
 export const SCHEME = 'btfile'
 const THUMB_SIZES = [256, 800]
@@ -150,10 +153,53 @@ async function thumbnail(abs: string, width: number): Promise<string | null> {
 }
 
 /** Serves `btfile:` URLs from the notes folder that `resolve` maps relative paths into. */
+const webImageDir = () => join(app.getPath('userData'), 'Web images')
+const MAX_WEB_IMAGE = 10 * 1024 * 1024
+const WEB_IMAGE_TYPES: Record<string, string> = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/gif': '.gif', 'image/webp': '.webp', 'image/avif': '.avif' }
+
+/** An image's extension from its first bytes, or null if it isn't one the window can show. */
+function imageExt(data: Buffer): string | null {
+  if (data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) return '.jpg'
+  if (data.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return '.png'
+  if (data.subarray(0, 4).toString('latin1') === 'GIF8') return '.gif'
+  if (data.subarray(0, 4).toString('latin1') === 'RIFF' && data.subarray(8, 12).toString('latin1') === 'WEBP') return '.webp'
+  if (data.subarray(4, 8).toString('latin1') === 'ftyp' && /^avi[fs]$/.test(data.subarray(8, 12).toString('latin1'))) return '.avif'
+  return null
+}
+
+/** A link card's preview image: from the cache, or downloaded into it the first time. */
+async function webImage(address: string | null): Promise<Response> {
+  if (!address || !/^https?:\/\//i.test(address)) return new Response('Not found', { status: 404 })
+  const key = createHash('sha1').update(address).digest('hex')
+  await fs.mkdir(webImageDir(), { recursive: true })
+  const cached = (await fs.readdir(webImageDir())).find((name) => name.startsWith(key))
+  if (cached) return net.fetch(pathToFileURL(join(webImageDir(), cached)).toString())
+  const response = await fetch(address, {
+    redirect: 'follow',
+    signal: AbortSignal.timeout(15000),
+    // Image servers often refuse requests that don't look like they come from a browser.
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) BTNotes/1.0 Safari/537.36',
+      Accept: 'image/avif,image/webp,image/png,image/jpeg,image/*;q=0.8',
+    },
+  })
+  if (!response.ok) return new Response('Not found', { status: 404 })
+  const data = Buffer.from(await response.arrayBuffer())
+  if (data.length > MAX_WEB_IMAGE) return new Response('Too large', { status: 404 })
+  // Some servers label every file as a generic download, so the first bytes have the last word.
+  const type = (response.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase()
+  const ext = imageExt(data) ?? WEB_IMAGE_TYPES[type]
+  if (!ext) return new Response('Not an image', { status: 404 })
+  const file = join(webImageDir(), `${key}${ext}`)
+  await fs.writeFile(file, data)
+  return net.fetch(pathToFileURL(file).toString())
+}
+
 export function handleScheme(resolveInVault: (rel: string) => string | null): void {
   protocol.handle(SCHEME, async (request) => {
     try {
       const url = new URL(request.url)
+      if (url.hostname === 'web') return await webImage(url.searchParams.get('u'))
       const rel = decodeURIComponent(url.pathname.slice(1))
       if (url.hostname === 'pdfjs') {
         const base = resolve(pdfjsDir())

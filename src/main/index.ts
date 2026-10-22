@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell, type Men
 import { existsSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { fetchLinkPreview } from '../shared/linkPreview'
 import { defaultRoots } from '../shared/notesRoot'
 import type { MenuAction, PendingSave } from '../shared/types'
 import { docInfo } from './docInfo'
@@ -63,6 +64,7 @@ ipcMain.handle('vault:pdf-preview', (_e, path: string, version: string, data: Ui
   savePdfPreview(requireVault().abs(path), version, data),
 )
 ipcMain.handle('vault:doc-info', (_e, path: string) => docInfo(requireVault().abs(path)))
+ipcMain.handle('links:preview', (_e, url: string) => (typeof url === 'string' ? fetchLinkPreview(url) : null))
 
 /**
  * Files that open in their own app from a board. Boards and their files can come from other

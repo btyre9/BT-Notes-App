@@ -27,9 +27,9 @@ The easiest way for Claude to change boards is the MCP server (see the README); 
 | Note | `"type": "file"`, `"file": "Notes/Plan.md"` |
 | Image, PDF, video, other file | `"type": "file"`, `"file": "Attachments/kitchen.jpg"`. Copy the file into `Attachments/` first |
 | Another board | `"type": "file"`, `"file": "Boards/Ideas.canvas"`. Shown as a folder with the name under it; 150 × 160 fits it |
-| Link | `"type": "link"`, `"url": "https://…"` |
+| Link | `"type": "link"`, `"url": "https://…"`. Optional page details the app shows as a preview: `btTitle`, `btDescription`, `btImage` (an https address), `btSite`; 300 × 270 fits one with an image |
 | Group | `"type": "group"`, `"label"` |
-| Column | A group with `"btColumn": true` and `"btCards": [card ids, top to bottom]` |
+| Wall (column) | A group with `"btColumn": true` and `"btCards": [card ids, top to bottom]`. The app calls these walls |
 | Color swatch | A text card with `"btSwatch": true`, `"color": "#c8102e"`, and `"text": "#C8102E\nGuards Red"` (hex code, then an optional name) |
 | Circle | A text card with `"styleAttributes": { "shape": "circle" }`, the way the Advanced Canvas plugin for Obsidian marks shapes. Keep its width and height equal |
 
@@ -48,6 +48,11 @@ The app stacks a column's cards 14 units inside its left edge, starting 48 units
 - Sides are `top`, `right`, `bottom` or `left`. Without them, the app joins the sides that face each other.
 - `toEnd` is `"arrow"` by default; `"none"` draws a plain line. `fromEnd: "arrow"` adds a head at the start.
 - `color` works as it does for cards.
+- **Line style** (BT Notes fields; Obsidian ignores them and draws a plain curve). Leave a field out for its default:
+  - `btLine`: `"curved"` (default), `"straight"` or `"elbow"` (right angles with rounded corners)
+  - `btPattern`: `"solid"` (default), `"dashed"` or `"dotted"`
+  - `btWeight`: `"thin"`, `"medium"` (default) or `"thick"`
+  - `btHead`: `"filled"` (default), `"closed"` (an outline) or `"open"` (two strokes)
 
 ## Board icon (`btIcon`)
 

@@ -424,6 +424,62 @@ export function facingSides(a: Rect, b: Rect): [Side, Side] {
   return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom']
 }
 
+// ---- Arrow styles ----
+// Stored on the arrow as btLine, btPattern, btWeight and btHead, like btColumn on columns, and
+// left out when they're the default so a plain arrow stays plain JSON Canvas. Arrowheads use
+// JSON Canvas's own fromEnd and toEnd.
+
+export const LINE_TYPES = ['curved', 'straight', 'elbow'] as const
+export const LINE_PATTERNS = ['solid', 'dashed', 'dotted'] as const
+export const LINE_WEIGHTS = ['thin', 'medium', 'thick'] as const
+export const HEAD_SHAPES = ['filled', 'closed', 'open'] as const
+export const ARROW_ENDS = ['none', 'end', 'start', 'both'] as const
+
+export interface EdgeStyle {
+  line: (typeof LINE_TYPES)[number]
+  pattern: (typeof LINE_PATTERNS)[number]
+  weight: (typeof LINE_WEIGHTS)[number]
+  head: (typeof HEAD_SHAPES)[number]
+  ends: (typeof ARROW_ENDS)[number]
+}
+
+const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
+  (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback
+
+/** An arrow's style, with the defaults for anything not set: a medium, solid curve with a filled head at the end. */
+export function edgeStyle(edge: CanvasEdge): EdgeStyle {
+  const start = edge.fromEnd === 'arrow'
+  const end = edge.toEnd !== 'none'
+  return {
+    line: pick(edge.btLine, LINE_TYPES, 'curved'),
+    pattern: pick(edge.btPattern, LINE_PATTERNS, 'solid'),
+    weight: pick(edge.btWeight, LINE_WEIGHTS, 'medium'),
+    head: pick(edge.btHead, HEAD_SHAPES, 'filled'),
+    ends: start && end ? 'both' : start ? 'start' : end ? 'end' : 'none',
+  }
+}
+
+/** Changes parts of an arrow's style, removing fields that go back to their defaults. */
+export function setEdgeStyle(edge: CanvasEdge, change: Partial<EdgeStyle>): void {
+  const field = (key: string, value: string | undefined, fallback: string) => {
+    if (value === undefined) return
+    if (value === fallback) delete edge[key]
+    else edge[key] = value
+  }
+  field('btLine', change.line, 'curved')
+  field('btPattern', change.pattern, 'solid')
+  field('btWeight', change.weight, 'medium')
+  field('btHead', change.head, 'filled')
+  if (change.ends) {
+    const start = change.ends === 'start' || change.ends === 'both'
+    const end = change.ends === 'end' || change.ends === 'both'
+    if (start) edge.fromEnd = 'arrow'
+    else delete edge.fromEnd
+    if (end) delete edge.toEnd
+    else edge.toEnd = 'none'
+  }
+}
+
 export interface EdgeShape {
   /** SVG path data for the curve. */
   d: string
@@ -434,41 +490,140 @@ export interface EdgeShape {
   mid: { x: number; y: number }
 }
 
-function head(tip: { x: number; y: number }, dir: { x: number; y: number }, size: number): string {
+type Point = { x: number; y: number }
+
+/** An arrowhead at a tip, pointing along dir: a closed triangle, or for 'open' just its two sides. */
+function head(tip: Point, dir: Point, size: number, shape: EdgeStyle['head'] = 'filled'): string {
   const len = Math.hypot(dir.x, dir.y) || 1
   const ux = dir.x / len
   const uy = dir.y / len
   const bx = tip.x - ux * size
   const by = tip.y - uy * size
-  const w = size * 0.55
-  return `M${tip.x},${tip.y} L${bx - uy * w},${by + ux * w} L${bx + uy * w},${by - ux * w} Z`
+  const w = size * (shape === 'open' ? 0.6 : 0.55)
+  const r = (n: number) => Math.round(n * 10) / 10
+  const left = `${r(bx - uy * w)},${r(by + ux * w)}`
+  const right = `${r(bx + uy * w)},${r(by - ux * w)}`
+  const point = `${r(tip.x)},${r(tip.y)}`
+  return shape === 'open' ? `M${left} L${point} L${right}` : `M${point} L${left} L${right} Z`
+}
+
+/** How far an elbow line runs straight out of a card before its first turn. */
+const ELBOW_LEAD = 24
+/** The radius of an elbow line's corners. */
+const ELBOW_RADIUS = 10
+
+/** The corners of a right-angled line from a side of one card to a side of another, or to a point. */
+function elbowPoints(p0: Point, n0: Point, p3: Point, n3: Point | null): Point[] {
+  const s = { x: p0.x + n0.x * ELBOW_LEAD, y: p0.y + n0.y * ELBOW_LEAD }
+  const e = n3 ? { x: p3.x + n3.x * ELBOW_LEAD, y: p3.y + n3.y * ELBOW_LEAD } : p3
+  const startAcross = n0.x !== 0
+  // Without an end side, turn once toward the point.
+  const endAcross = n3 ? n3.x !== 0 : !startAcross
+  let turns: Point[]
+  if (startAcross && endAcross) {
+    const mx = (s.x + e.x) / 2
+    turns = [{ x: mx, y: s.y }, { x: mx, y: e.y }]
+  } else if (!startAcross && !endAcross) {
+    const my = (s.y + e.y) / 2
+    turns = [{ x: s.x, y: my }, { x: e.x, y: my }]
+  } else {
+    turns = [startAcross ? { x: e.x, y: s.y } : { x: s.x, y: e.y }]
+  }
+  const points = [p0, s, ...turns, e, ...(n3 ? [p3] : [])]
+  // Drop repeated points and points in the middle of a straight run, so every point left is a corner.
+  const out: Point[] = []
+  for (const p of points) {
+    const last = out[out.length - 1]
+    if (last && Math.abs(last.x - p.x) < 0.01 && Math.abs(last.y - p.y) < 0.01) continue
+    const before = out[out.length - 2]
+    if (before && last && Math.abs((last.x - before.x) * (p.y - last.y) - (last.y - before.y) * (p.x - last.x)) < 0.01) out.pop()
+    out.push(p)
+  }
+  return out
+}
+
+/** SVG path data through points, with rounded corners. */
+function roundedPath(points: Point[], radius: number): string {
+  const r = (n: number) => Math.round(n * 10) / 10
+  let d = `M${r(points[0].x)},${r(points[0].y)}`
+  for (let i = 1; i < points.length - 1; i++) {
+    const [a, c, b] = [points[i - 1], points[i], points[i + 1]]
+    const inLen = Math.hypot(c.x - a.x, c.y - a.y)
+    const outLen = Math.hypot(b.x - c.x, b.y - c.y)
+    const rr = Math.min(radius, inLen / 2, outLen / 2)
+    const p1 = { x: c.x - ((c.x - a.x) / inLen) * rr, y: c.y - ((c.y - a.y) / inLen) * rr }
+    const p2 = { x: c.x + ((b.x - c.x) / outLen) * rr, y: c.y + ((b.y - c.y) / outLen) * rr }
+    d += ` L${r(p1.x)},${r(p1.y)} Q${r(c.x)},${r(c.y)} ${r(p2.x)},${r(p2.y)}`
+  }
+  const last = points[points.length - 1]
+  return `${d} L${r(last.x)},${r(last.y)}`
+}
+
+/** The point halfway along a line through points, for the label. */
+function halfway(points: Point[]): Point {
+  const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y))
+  let left = lengths.reduce((a, b) => a + b, 0) / 2
+  for (let i = 0; i < lengths.length; i++) {
+    if (left <= lengths[i]) {
+      const t = lengths[i] ? left / lengths[i] : 0
+      return { x: points[i].x + (points[i + 1].x - points[i].x) * t, y: points[i].y + (points[i + 1].y - points[i].y) * t }
+    }
+    left -= lengths[i]
+  }
+  return points[points.length - 1]
 }
 
 /**
- * The curve of an arrow from a side of one card to a side of another, or to a point while one is
- * being drawn. It leaves and enters each card straight out from the side, like Obsidian's.
+ * The line of an arrow from a side of one card to a side of another, or to a point while one is
+ * being drawn. A curve leaves and enters each card straight out from the side, like Obsidian's;
+ * an elbow line does the same with right angles; a straight line runs side to side directly.
  */
 export function edgeShape(
   from: Rect,
   fromSide: Side,
-  to: Rect | { x: number; y: number },
+  to: Rect | Point,
   toSide: Side | null,
   ends: { start: boolean; end: boolean },
   headSize = 14,
+  style: Pick<EdgeStyle, 'line' | 'head'> = { line: 'curved', head: 'filled' },
 ): EdgeShape {
   const p0 = anchor(from, fromSide)
   const p3 = 'width' in to && toSide ? anchor(to, toSide) : { x: to.x, y: to.y }
-  const reach = Math.max(40, Math.min(160, Math.hypot(p3.x - p0.x, p3.y - p0.y) / 2))
   const n0 = NORMALS[fromSide]
-  const n3 = toSide ? NORMALS[toSide] : { x: 0, y: 0 }
-  const c1 = { x: p0.x + n0.x * reach, y: p0.y + n0.y * reach }
-  const c2 = { x: p3.x + n3.x * reach, y: p3.y + n3.y * reach }
+  const n3 = toSide ? NORMALS[toSide] : null
   const r = (n: number) => Math.round(n * 10) / 10
+  const heads = (startDir: Point, endDir: Point) => ({
+    startHead: ends.start ? head(p0, startDir, headSize, style.head) : '',
+    endHead: ends.end ? head(p3, endDir, headSize, style.head) : '',
+  })
+
+  if (style.line === 'straight') {
+    const dir = { x: p3.x - p0.x, y: p3.y - p0.y }
+    return {
+      d: `M${r(p0.x)},${r(p0.y)} L${r(p3.x)},${r(p3.y)}`,
+      ...heads({ x: -dir.x, y: -dir.y }, dir),
+      mid: { x: (p0.x + p3.x) / 2, y: (p0.y + p3.y) / 2 },
+    }
+  }
+
+  if (style.line === 'elbow') {
+    const points = elbowPoints(p0, n0, p3, n3)
+    const second = points[1] ?? p3
+    const beforeLast = points[points.length - 2] ?? p0
+    return {
+      d: roundedPath(points, ELBOW_RADIUS),
+      ...heads({ x: p0.x - second.x, y: p0.y - second.y }, { x: p3.x - beforeLast.x, y: p3.y - beforeLast.y }),
+      mid: halfway(points),
+    }
+  }
+
+  const reach = Math.max(40, Math.min(160, Math.hypot(p3.x - p0.x, p3.y - p0.y) / 2))
+  const c1 = { x: p0.x + n0.x * reach, y: p0.y + n0.y * reach }
+  const c2 = n3 ? { x: p3.x + n3.x * reach, y: p3.y + n3.y * reach } : p3
   return {
     d: `M${r(p0.x)},${r(p0.y)} C${r(c1.x)},${r(c1.y)} ${r(c2.x)},${r(c2.y)} ${r(p3.x)},${r(p3.y)}`,
-    startHead: ends.start ? head(p0, { x: p0.x - c1.x, y: p0.y - c1.y }, headSize) : '',
     // Without an end side the last control point sits on the tip, so aim from the first one.
-    endHead: ends.end ? head(p3, toSide ? { x: p3.x - c2.x, y: p3.y - c2.y } : { x: p3.x - c1.x, y: p3.y - c1.y }, headSize) : '',
+    ...heads({ x: p0.x - c1.x, y: p0.y - c1.y }, n3 ? { x: p3.x - c2.x, y: p3.y - c2.y } : { x: p3.x - c1.x, y: p3.y - c1.y }),
     mid: { x: (p0.x + 3 * c1.x + 3 * c2.x + p3.x) / 8, y: (p0.y + 3 * c1.y + 3 * c2.y + p3.y) / 8 },
   }
 }

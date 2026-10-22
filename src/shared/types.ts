@@ -51,6 +51,11 @@ export interface PendingSave {
   content: string
 }
 
+export interface LinksApi {
+  /** A web page's title, description, preview image and site name, or null if it can't be read. */
+  preview(url: string): Promise<import('./linkPreview').LinkPreview | null>
+}
+
 export interface AppApi {
   onMenu(callback: (action: MenuAction) => void): () => void
   /** Saves synchronously; returns an error message or null. Only for use during unload. */

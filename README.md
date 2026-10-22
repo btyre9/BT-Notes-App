@@ -76,20 +76,23 @@ The app opens to the **Home** board. Other boards are listed under **Boards** in
 
 | Action | How |
 |---|---|
-| New board | **+** next to **Boards** in the sidebar, or **Board** in the toolbar to add one as a card |
+| Toolbar | The tools at the bottom of a board. Click one to add it in the middle of the window, or drag it to where it should go; dropped on a wall, it goes onto the wall. Hover a tool to see its name |
+| New board | **+** next to **Boards** in the sidebar, or **Board** (the blue folder) in the toolbar to add one as a card. Dragging it out makes a new board |
 | Text card | Double-click an empty spot, or **Text** in the toolbar. Double-click a card to edit it. Text cards are Markdown: `**bold**`, lists, `- [ ]` tasks, tables |
 | Table, chart or diagram | **Chart** in the toolbar: table, pie, bar or line chart, flowchart, timeline. Double-click the card to change it. Charts are [Mermaid](https://mermaid.js.org) code in a ```` ```mermaid ```` block; a mistake shows what's wrong |
 | Note card | **Note** in the toolbar: pick a note or create one. Double-click the card to open the note beside the board |
+| Links | Paste a web address onto a board, or drag a link in from a browser. The card shows the page's picture, title and description; double-click it to open the page |
 | Images and files | Drop or paste them onto the board, or **Files** in the toolbar. They're copied into `Attachments/` |
 | PDFs | The card is a page with a red band and the PDF's title (from its properties, or the file name), and shows the first page. Double-click it to read the whole PDF; **Open in its app** opens it in your PDF reader |
 | Videos | Press play on the card. Seeking and full screen work from its controls. Double-click opens it in your video player |
 | Word, Excel, PowerPoint, text and other files | The card is a page in the app's color with the document's title and first lines. Double-click to open it in its app |
 | Circle | The shapes button in the dock. Type in it, color it and connect arrows to it like a text card; it stays round when resized |
 | Color swatch | **Color** in the toolbar. Double-click it to set the color with the color picker, a hex code, or the eyedropper (pick a color from anything on screen, such as a photo on the board), and give it a name |
-| Column | **Column** in the toolbar. Drag cards into it and they stack top to bottom; drag one out and the rest close up. Double-click the column to rename it |
+| Wall | **Wall** in the toolbar. Drag cards onto it and they stack top to bottom; drag one off and the rest close up. Double-click the wall to rename it. (In the board file a wall is a JSON Canvas group with `btColumn`.) |
 | Arrow | Hover a card and drag from the dot on one of its sides onto another card. Double-click an arrow to label it; click it to select, color or delete it |
+| Arrow style | Select one or more arrows and choose **Line**: curved, straight or right-angled; solid, dashed or dotted; thin, medium or thick; arrowheads at either end, both or none; filled, outlined or open heads |
 | Open a board card | Double-click it. **←** goes back |
-| Board icon | Select a board card and choose **Icon**, or click the icon left of a board's name. Pick a color and an icon, or **Use an image…**. The board's name shows under its card |
+| Board icon | Select a board card and choose **Icon**, or click the icon left of a board's name. Pick a color and an icon, or **Use an image…**. On a board, a board card is a folder showing that image or icon, with the board's name underneath |
 | Move / resize | Drag a card / drag its bottom-right corner. Shift+click selects more than one |
 | Pan / zoom | Drag the background or scroll / **Ctrl+scroll** or pinch. The **%** button fits the board to the window |
 | Color / delete | Select cards or arrows, then pick a color or the trash button in the toolbar (or **Delete**). The rainbow button at the end of the colors opens the full palette: 16 hues in five shades, neutrals, your recent colors, and any color by picker, hex code or eyedropper |
@@ -146,9 +149,9 @@ Claude can list, read and build boards through a small MCP server in `mcp/` that
 claude mcp add --scope user bt-notes-boards -- node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON D:/BT-Notes-App/mcp/server.ts
 ```
 
-Then ask, for example, "make a mood board called Kitchen from the photos in my Downloads folder, with a palette and a column of ideas". Changes appear in the app within a few seconds. If you're editing the same board in the app at that moment, your edit wins.
+Then ask, for example, "make a mood board called Kitchen from the photos in my Downloads folder, with a palette and a wall of ideas". Changes appear in the app within a few seconds. If you're editing the same board in the app at that moment, your edit wins.
 
-The tools: `list_boards`, `read_board`, `create_board`, `add_cards` (cards, columns, swatches, charts, arrows), `update_cards`, `remove_cards`. To write board files directly instead, see [docs/board-format.md](docs/board-format.md).
+The tools: `list_boards`, `read_board`, `create_board`, `add_cards` (cards, walls, swatches, charts, arrows), `update_cards`, `remove_cards`. To write board files directly instead, see [docs/board-format.md](docs/board-format.md).
 
 ## Apple Notes capture (Mac)
 

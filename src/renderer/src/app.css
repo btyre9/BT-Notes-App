@@ -38,6 +38,13 @@
   --folder-front: #e7e7ea;
   --folder-back: #cfcfd5;
   --folder-sheet: #f7f7f8;
+  /* The dock's drawings: tiles, their edge, text on them, and cards drawn on them. */
+  --dock-tile: #ffffff;
+  --dock-tile-edge: #d4d4d8;
+  --dock-ink: #27272a;
+  --dock-card: #e4e4e7;
+  --tip-bg: #1f1f23;
+  --tip-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -66,6 +73,12 @@
     --folder-front: #44444b;
     --folder-back: #38383e;
     --folder-sheet: #d4d4d8;
+    --dock-tile: #3a3a40;
+    --dock-tile-edge: #52525b;
+    --dock-ink: #f4f4f5;
+    --dock-card: #52525b;
+    --tip-bg: #f4f4f5;
+    --tip-text: #18181b;
   }
 }
 
@@ -942,21 +955,84 @@ input.board-title:focus {
   box-shadow: var(--board-shadow);
   backdrop-filter: blur(12px);
 }
+.board-dock {
+  align-items: center;
+  user-select: none;
+}
 .dock-button {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 9px;
-  color: var(--text-muted);
+  width: 46px;
+  height: 46px;
+  border-radius: 11px;
+  touch-action: none;
+  transition: transform 0.12s ease, background-color 0.12s ease;
 }
-.dock-button .icon {
-  width: 19px;
-  height: 19px;
+.dock-icon {
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.18));
 }
+/* Tools lift a little under the pointer, to say they can be picked up. */
 .dock-button:hover,
 .dock-button[aria-expanded='true'] {
   background: var(--code-bg);
+  transform: translateY(-2px);
+}
+.dock-button:active {
+  transform: translateY(0) scale(0.96);
+  cursor: grabbing;
+}
+/* The tool's name above it on hover, after a moment so passing over the dock stays quiet. Hidden
+   while its menu is open or a tool is being dragged. */
+.dock-button::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--tip-bg);
+  color: var(--tip-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  pointer-events: none;
+}
+.dock-button:hover::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition-delay: 0.25s;
+}
+.dock-button[aria-expanded='true']::after,
+.board-dock.dragging .dock-button::after {
+  display: none;
+}
+.dock-divider {
+  width: 1px;
+  height: 28px;
+  margin: 0 6px;
+  background: var(--board-edge);
+}
+/* The tool following the pointer while it's dragged onto the board. */
+.tool-ghost {
+  position: fixed;
+  z-index: 50;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 12px 8px;
+  border-radius: 14px;
+  background: var(--board-chrome);
+  border: 1px solid var(--board-edge);
+  box-shadow: var(--board-shadow);
+  transform: translate(-50%, -50%) rotate(-3deg);
+  pointer-events: none;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text);
 }
 /* Menus from the dock open upward, centered on their button. */
@@ -1137,6 +1213,63 @@ input.board-title:focus {
 }
 .card-url {
   overflow-wrap: anywhere;
+}
+/* Link cards: the page's preview image on top, then its site, title and description. */
+.link-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.link-image {
+  flex: 0 1 auto;
+  width: 100%;
+  min-height: 0;
+  aspect-ratio: 1.91;
+  object-fit: cover;
+  background: var(--code-bg);
+}
+.link-text {
+  flex: 1;
+  min-height: 0;
+  padding: 10px 14px 12px;
+  overflow: hidden;
+}
+.link-site {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.link-site span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.link-site .icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.link-title {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.link-description {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .card-image {
   background: var(--code-bg);
@@ -1401,6 +1534,75 @@ input.board-title:focus {
 }
 .arrow-head {
   fill: var(--arrow-color-shown);
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+/* Outlined heads are filled with the canvas color, so the line under them doesn't show. */
+.arrow-head.head-closed {
+  fill: var(--board-bg);
+  stroke: var(--arrow-color-shown);
+}
+.arrow-head.head-open {
+  fill: none;
+  stroke: var(--arrow-color-shown);
+}
+.arrow-head.head-filled {
+  stroke: none;
+}
+
+/* The Line picker for selected arrows: rows of small drawings of each option. */
+.line-style-anchor {
+  width: auto;
+  padding: 10px 12px;
+}
+.line-style {
+  display: grid;
+  gap: 6px;
+}
+.line-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.line-row-label {
+  width: 58px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.line-option {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 30px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  border: 1px solid transparent;
+}
+.line-option:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+.line-option.selected {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.line-option svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.line-option svg .line-head {
+  fill: currentColor;
+  stroke-width: 1.5;
+}
+.line-option svg .line-head.head-closed {
+  fill: var(--editor-bg);
+}
+.line-option svg .line-head.head-open {
+  fill: none;
 }
 .arrow-hit {
   fill: none;

@@ -10,6 +10,7 @@
   import { plainLine } from '../lib/note'
   import { isLight } from '../lib/palette'
   import { store } from '../lib/store.svelte'
+  import { colorName, swatchNameAfter } from '../../../shared/colorNames'
   import Icon from './Icon.svelte'
 
   let {
@@ -175,6 +176,12 @@
     })
   })
 
+  /** A new color while editing; the name follows it unless one was typed. */
+  function setSwatchHex(hex: string) {
+    swatchName = swatchNameAfter(swatchHex, swatchName, hex)
+    swatchHex = hex
+  }
+
   function commitSwatch() {
     if (editing && !picking && document.hasFocus()) oncommit(`${swatchHex}\n${swatchName}`)
   }
@@ -187,7 +194,7 @@
   function onHexInput(event: Event) {
     const value = (event.currentTarget as HTMLInputElement).value.trim()
     const hex = value.startsWith('#') ? value : `#${value}`
-    if (/^#[0-9a-f]{6}$/i.test(hex)) swatchHex = hex.toLowerCase()
+    if (/^#[0-9a-f]{6}$/i.test(hex)) setSwatchHex(hex.toLowerCase())
   }
 
   async function pickFromScreen() {
@@ -195,7 +202,7 @@
     try {
       // @ts-expect-error EyeDropper isn't in TypeScript's DOM types yet.
       const { sRGBHex } = await new window.EyeDropper().open()
-      swatchHex = String(sRGBHex).toLowerCase()
+      setSwatchHex(String(sRGBHex).toLowerCase())
     } catch {
       // Cancelled with Esc.
     } finally {
@@ -274,6 +281,13 @@
     }
   })
 
+  // A link card's page details, fetched when it was added; older cards have none.
+  const linkTitle = $derived(typeof node.btTitle === 'string' ? node.btTitle : undefined)
+  const linkDescription = $derived(typeof node.btDescription === 'string' ? node.btDescription : undefined)
+  const linkSite = $derived(typeof node.btSite === 'string' ? node.btSite : undefined)
+  const linkImage = $derived(typeof node.btImage === 'string' ? `btfile://web/?u=${encodeURIComponent(node.btImage)}` : undefined)
+  let linkImageBroken = $state(false)
+
   const labelled = $derived(kind === 'group' || kind === 'column')
   let field = $state<HTMLTextAreaElement | HTMLInputElement>()
   let draft = $state('')
@@ -337,7 +351,7 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="swatch-editor" bind:this={swatchEditor} onfocusout={onSwatchFocusOut} onpointerdown={(e) => e.stopPropagation()} onkeydown={onSwatchKey}>
         <div class="swatch-row">
-          <input type="color" value={swatchHex} oninput={(e) => (swatchHex = e.currentTarget.value)} aria-label="Color" />
+          <input type="color" value={swatchHex} oninput={(e) => setSwatchHex(e.currentTarget.value)} aria-label="Color" />
           <input class="swatch-hex-input" value={swatchHex.toUpperCase()} oninput={onHexInput} aria-label="Hex code" spellcheck="false" />
           {#if canPick}
             <button class="icon-button" title="Pick a color from the screen" aria-label="Pick a color from the screen" onclick={pickFromScreen}>
@@ -345,12 +359,13 @@
             </button>
           {/if}
         </div>
-        <input class="swatch-name-input" bind:value={swatchName} placeholder="Name (optional)" aria-label="Name" />
+        <input class="swatch-name-input" bind:value={swatchName} placeholder={colorName(swatchHex) || 'Name'} aria-label="Name" />
       </div>
     {:else}
       <div class="swatch-label">
         <div class="swatch-hex">{swatch.hex.toUpperCase()}</div>
-        {#if swatch.name}<div class="swatch-name">{swatch.name}</div>{/if}
+        <!-- Without a typed name, the nearest named color's, like Coolors. -->
+        <div class="swatch-name">{swatch.name || colorName(swatch.hex)}</div>
       </div>
     {/if}
   {:else if kind === 'pdf' && node.file}
@@ -407,9 +422,20 @@
       {boardName(node.file ?? '')}
     </div>
   {:else if kind === 'link'}
-    <div class="card-body">
-      <div class="card-title"><Icon name="link" /> {host}</div>
-      <p class="card-url">{node.url}</p>
+    <!-- Like Milanote: the page's picture, then its site, title and a line or two about it. -->
+    <div class="link-card">
+      {#if linkImage && !linkImageBroken}
+        <img class="link-image" src={linkImage} alt="" draggable="false" onerror={() => (linkImageBroken = true)} />
+      {/if}
+      <div class="link-text">
+        <div class="link-site"><Icon name="link" /> <span>{linkSite ?? host}</span></div>
+        {#if linkTitle}<div class="link-title">{linkTitle}</div>{/if}
+        {#if linkDescription}
+          <p class="link-description">{linkDescription}</p>
+        {:else if !linkTitle}
+          <p class="card-url">{node.url}</p>
+        {/if}
+      </div>
     </div>
   {:else if kind === 'file'}
     <!-- A page in the app's color: its title, its first lines, and the file's name. -->
@@ -433,7 +459,7 @@
         onblur={commit}
         {onkeydown}
         onpointerdown={(e) => e.stopPropagation()}
-        placeholder={kind === 'column' ? 'Column name' : 'Group name'}
+        placeholder={kind === 'column' ? 'Wall name' : 'Group name'}
       />
     {:else}
       <div class="card-group-label">{node.label ?? ''}</div>

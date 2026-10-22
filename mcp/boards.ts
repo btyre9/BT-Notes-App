@@ -11,6 +11,9 @@ import {
   BOARD_EXT,
   BOARDS_DIR,
   colorOf,
+  edgeStyle,
+  setEdgeStyle,
+  type EdgeStyle,
   DOC_SIZE,
   PDF_SIZE,
   columnCards,
@@ -31,6 +34,8 @@ import {
   type CanvasEdge,
   type CanvasNode,
 } from '../src/renderer/src/lib/board.ts'
+import { colorName, swatchNameAfter } from '../src/shared/colorNames.ts'
+import { fetchLinkPreview } from '../src/shared/linkPreview.ts'
 import { imageSize } from './imageSize.ts'
 
 const ATTACHMENTS = 'Attachments'
@@ -245,7 +250,14 @@ export async function readBoard(folder: NotesFolder, board: string) {
       return card
     }),
   )
-  const arrows = data.edges.map((e) => ({ id: e.id, from: e.fromNode, to: e.toNode, ...(e.label ? { label: e.label } : {}), ...(e.color ? { color: e.color } : {}) }))
+  const arrows = data.edges.map((e) => ({
+    id: e.id,
+    from: e.fromNode,
+    to: e.toNode,
+    ...(e.label ? { label: e.label } : {}),
+    ...(e.color ? { color: e.color } : {}),
+    ...styleReport(e),
+  }))
   return { board: path, name: boardName(path), cards, arrows }
 }
 
@@ -268,11 +280,24 @@ export interface NewCard {
   height?: number
 }
 
-export interface NewArrow {
+export interface NewArrow extends Partial<EdgeStyle> {
   from: string
   to: string
   label?: string
   color?: string
+}
+
+/** The style fields of a request, without the ones it left out. */
+function styleOf(spec: Partial<EdgeStyle>): Partial<EdgeStyle> {
+  const { line, pattern, weight, head, ends } = spec
+  return Object.fromEntries(Object.entries({ line, pattern, weight, head, ends }).filter(([, v]) => v !== undefined))
+}
+
+/** An arrow's style as read_board reports it: only what differs from a plain arrow. */
+function styleReport(edge: CanvasEdge): Partial<EdgeStyle> {
+  const style = edgeStyle(edge)
+  const plain = edgeStyle({ id: '', fromNode: '', toNode: '' })
+  return Object.fromEntries(Object.entries(style).filter(([k, v]) => plain[k as keyof EdgeStyle] !== v))
 }
 
 /** A first guess at how tall a text card's rendered Markdown is. */
@@ -309,9 +334,15 @@ async function makeCard(folder: NotesFolder, data: CanvasData, spec: NewCard): P
       const size = kind === 'pdf' ? PDF_SIZE : kind === 'video' ? { width: 320, height: 180 } : DOC_SIZE
       return { ...base, type: 'file', file, ...size }
     }
-    case 'link':
+    case 'link': {
       if (!spec.url) throw new BoardError('A link card needs a url')
-      return { ...base, type: 'link', url: spec.url, width: 280, height: 80 }
+      // The page's title, description, picture and site, as the app does for pasted links.
+      const preview = await fetchLinkPreview(spec.url)
+      const details = Object.fromEntries(
+        Object.entries({ btTitle: preview?.title, btDescription: preview?.description, btImage: preview?.image, btSite: preview?.site }).filter(([, v]) => v),
+      )
+      return { ...base, type: 'link', url: spec.url, width: 300, height: preview?.image ? 270 : 110, ...details }
+    }
     case 'board': {
       const file = await folder.findBoard(spec.path ?? spec.name ?? '')
       return { ...base, type: 'file', file, width: 150, height: 160 }
@@ -320,7 +351,9 @@ async function makeCard(folder: NotesFolder, data: CanvasData, spec: NewCard): P
       const hex = colorOf(spec.color)
       if (!hex) throw new BoardError(`A swatch needs a color such as "#c8102e"; got ${spec.color}`)
       const card: CanvasNode = { ...base, type: 'text', btSwatch: true, width: 160, height: 200 }
-      setSwatch(card, hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex, spec.name ?? '')
+      const full = hex.length === 4 ? `#${[...hex.slice(1)].map((c) => c + c).join('')}` : hex
+      // Unnamed swatches get the nearest named color's name, as in the app.
+      setSwatch(card, full, spec.name ?? colorName(full))
       return card
     }
     case 'column':
@@ -399,7 +432,7 @@ export async function addCards(folder: NotesFolder, board: string, cards: NewCar
       const to = lookup(arrow.to)
       if (!from || !to) throw new BoardError(`An arrow points at a card that isn't there: ${!from ? arrow.from : arrow.to}`)
       const [fromSide, toSide] = facingSides(from, to)
-      return {
+      const edge: CanvasEdge = {
         id: newId(),
         fromNode: from.id,
         fromSide,
@@ -408,6 +441,8 @@ export async function addCards(folder: NotesFolder, board: string, cards: NewCar
         ...(arrow.label ? { label: arrow.label } : {}),
         ...(arrow.color ? { color: arrow.color } : {}),
       }
+      setEdgeStyle(edge, styleOf(arrow))
+      return edge
     })
     data.edges.push(...madeArrows)
 
@@ -421,7 +456,7 @@ export async function addCards(folder: NotesFolder, board: string, cards: NewCar
 
 // ---- Changing ----
 
-export interface CardChange {
+export interface CardChange extends Partial<EdgeStyle> {
   id: string
   text?: string
   label?: string
@@ -441,12 +476,14 @@ export async function updateCards(folder: NotesFolder, board: string, changes: C
       if (edge) {
         if (change.label !== undefined) edge.label = change.label
         if (change.color !== undefined) edge.color = change.color
+        setEdgeStyle(edge, styleOf(change))
         continue
       }
       if (!node) throw new BoardError(`There's no card or arrow ${change.id}`)
       if (kindOf(node) === 'swatch') {
         const current = swatchOf(node)
-        setSwatch(node, colorOf(change.color) ?? current.hex, change.name ?? current.name)
+        const hex = colorOf(change.color) ?? current.hex
+        setSwatch(node, hex, change.name ?? swatchNameAfter(current.hex, current.name, hex))
       } else {
         if (change.text !== undefined) node.text = change.text
         if (change.label !== undefined || change.name !== undefined) node.label = change.label ?? change.name

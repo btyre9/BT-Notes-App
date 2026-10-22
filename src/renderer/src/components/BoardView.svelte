@@ -26,6 +26,9 @@
     newId,
     PDF_SIZE,
     PRESET_COLORS,
+    edgeStyle,
+    setEdgeStyle,
+    type EdgeStyle,
     removeNodes,
     setSwatch,
     swatchOf,
@@ -42,6 +45,9 @@
   import BoardTile from './BoardTile.svelte'
   import CardPicker from './CardPicker.svelte'
   import Icon from './Icon.svelte'
+  import { colorName, swatchNameAfter } from '../../../shared/colorNames'
+  import DockIcon, { type DockTool } from './DockIcon.svelte'
+  import LineStylePicker from './LineStylePicker.svelte'
   import Minimap from './Minimap.svelte'
 
   const MIN_ZOOM = 0.1
@@ -125,6 +131,9 @@
   const shownInColumns = $derived(shown.filter((n) => n.type !== 'group' && inColumns.has(n.id)))
   const shownCards = $derived(shown.filter((n) => n.type !== 'group' && !inColumns.has(n.id)))
 
+  /** Line thickness for each weight, as a multiple of a medium line. */
+  const WEIGHTS: Record<EdgeStyle['weight'], number> = { thin: 0.6, medium: 1, thick: 1.8 }
+
   /** Arrows keep about the same thickness on screen at any zoom. */
   const lineWidth = $derived(Math.max(2, 1.5 / view.zoom))
   const headSize = $derived(Math.max(14, 9 / view.zoom))
@@ -136,9 +145,21 @@
       const to = byId.get(edge.toNode)
       if (!from || !to) return []
       const [fromFacing, toFacing] = facingSides(from, to)
-      const ends = { start: edge.fromEnd === 'arrow', end: edge.toEnd !== 'none' }
-      const shape = edgeShape(from, isSide(edge.fromSide) ? edge.fromSide : fromFacing, to, isSide(edge.toSide) ? edge.toSide : toFacing, ends, headSize)
-      return [{ edge, shape, color: colorOf(edge.color) }]
+      const style = edgeStyle(edge)
+      const ends = { start: style.ends === 'start' || style.ends === 'both', end: style.ends === 'end' || style.ends === 'both' }
+      const weight = WEIGHTS[style.weight]
+      const width = lineWidth * weight
+      const shape = edgeShape(
+        from,
+        isSide(edge.fromSide) ? edge.fromSide : fromFacing,
+        to,
+        isSide(edge.toSide) ? edge.toSide : toFacing,
+        ends,
+        headSize * (0.75 + weight / 4),
+        style,
+      )
+      const dash = style.pattern === 'dashed' ? `${width * 3} ${width * 2.5}` : style.pattern === 'dotted' ? `0.01 ${width * 2.2}` : null
+      return [{ edge, shape, color: colorOf(edge.color), width, dash, head: style.head }]
     })
   })
 
@@ -190,6 +211,7 @@
     picker = null
     iconFor = null
     paletteOpen = false
+    lineStyleOpen = false
   })
 
   // A board card's icon picker belongs to that card; selecting something else closes it.
@@ -217,18 +239,28 @@
 
   // ---- Adding cards ----
 
-  function addNode(card: Pick<CanvasNode, 'type' | 'width' | 'height'> & Partial<CanvasNode>, at = center()): CanvasNode {
+  /**
+   * Adds a card near a point, in a free spot. Dragged from the dock it goes exactly where it was
+   * dropped instead, and into a column if it was dropped on one.
+   */
+  function addNode(card: Pick<CanvasNode, 'type' | 'width' | 'height'> & Partial<CanvasNode>, at = center(), exact = false): CanvasNode {
     // Groups and columns are areas to put cards in, not cards to keep clear of.
     const cards = nodes.filter((n) => n.type !== 'group')
-    const node = { id: newId(), ...freeSpot(cards, at.x, at.y, card.width, card.height), ...card } as CanvasNode
-    boards.update((data) => data.nodes.push(node))
+    const spot = exact
+      ? { x: Math.round(at.x - card.width / 2), y: Math.round(at.y - card.height / 2) }
+      : freeSpot(cards, at.x, at.y, card.width, card.height)
+    const node = { id: newId(), ...spot, ...card } as CanvasNode
+    boards.update((data) => {
+      data.nodes.push(node)
+      if (exact && node.type !== 'group' && columnAt(data, at)) dropIntoColumn(data, [node.id], at)
+    })
     boards.selection = [node.id]
     return node
   }
 
-  function addText(at = center(), text = '', width = 260) {
+  function addText(at = center(), text = '', width = 260, exact = false) {
     const lines = text.split('\n').length
-    const node = addNode({ type: 'text', text, width, height: Math.min(400, 40 + lines * 20) }, at)
+    const node = addNode({ type: 'text', text, width, height: Math.min(400, 40 + lines * 20) }, at, exact)
     if (!text) editingId = node.id
     else autosizeId = node.id
   }
@@ -268,11 +300,11 @@
   ]
 
   /** Adds a color swatch, starting from one of the card colors, and opens it for editing. */
-  function addSwatch() {
+  function addSwatch(at = center(), exact = false) {
     const palette = Object.values(PRESET_COLORS)
     const used = nodes.filter((n) => kindOf(n) === 'swatch').length
     const color = palette[used % palette.length]
-    const node = addNode({ type: 'text', btSwatch: true, color, text: color.toUpperCase(), width: 160, height: 200 })
+    const node = addNode({ type: 'text', btSwatch: true, color, text: `${color.toUpperCase()}\n${colorName(color)}`, width: 160, height: 200 }, at, exact)
     editingId = node.id
   }
 
@@ -296,18 +328,35 @@
   }
 
   /** A circle to type in, color and connect, like a text card. */
-  function addCircle() {
-    const node = addNode({ type: 'text', text: '', styleAttributes: { shape: 'circle' }, width: 160, height: 160 })
+  function addCircle(at = center(), exact = false) {
+    const node = addNode({ type: 'text', text: '', styleAttributes: { shape: 'circle' }, width: 160, height: 160 }, at, exact)
     editingId = node.id
   }
 
-  function addColumn() {
-    const node = addNode({ type: 'group', label: '', btColumn: true, btCards: [], width: 300, height: COLUMN.header + COLUMN.empty })
+  function addColumn(at = center(), exact = false) {
+    const node = addNode({ type: 'group', label: '', btColumn: true, btCards: [], width: 300, height: COLUMN.header + COLUMN.empty }, at, exact)
     editingId = node.id
   }
 
-  function addLink(url: string, at = center()) {
-    addNode({ type: 'link', url, width: 280, height: 80 }, at)
+  /**
+   * A link card. Its page's title, description, preview image and site name are fetched once and
+   * kept on the card (btTitle, btDescription, btImage, btSite), so every device shows the same.
+   */
+  function addLink(url: string, at = center(), exact = false) {
+    const path = boards.current
+    const node = addNode({ type: 'link', url, width: 300, height: 110 }, at, exact)
+    void window.bt.links.preview(url).then((preview) => {
+      if (!preview || !(preview.title || preview.image)) return
+      boards.update((data) => {
+        const card = data.nodes.find((n) => n.id === node.id)
+        if (!card) return
+        const fields = { btTitle: preview.title, btDescription: preview.description, btImage: preview.image, btSite: preview.site }
+        for (const [key, value] of Object.entries(fields)) if (value) card[key] = value
+        // Room for the picture above the text.
+        if (preview.image) card.height = Math.max(card.height, 270)
+        layoutColumns(data)
+      }, path)
+    })
   }
 
   async function imageSize(file: File): Promise<{ width: number; height: number }> {
@@ -383,10 +432,83 @@
     if (boards.current === path) boards.selection = added.map((n) => n.id)
   }
 
+  /** Where the Files tool was dropped, so the chosen files go there. */
+  let filesAt: { x: number; y: number } | null = null
+
   function chooseFiles() {
     const files = [...(imageInput.files ?? [])]
     imageInput.value = ''
-    void addFiles(files)
+    void addFiles(files, filesAt ?? undefined)
+    filesAt = null
+  }
+
+  // ---- Dragging tools from the dock ----
+
+  const TOOL_NAMES: Record<DockTool, string> = {
+    text: 'Text',
+    note: 'Note',
+    image: 'Files',
+    chart: 'Table',
+    board: 'Board',
+    column: 'Wall',
+    color: 'Color',
+    shape: 'Circle',
+  }
+
+  /** A tool being dragged from the dock; it becomes a drag once the pointer moves a little. */
+  let toolDrag = $state<{ tool: DockTool; startX: number; startY: number; x: number; y: number; active: boolean } | null>(null)
+
+  function onToolDown(event: PointerEvent, tool: DockTool) {
+    if (event.button !== 0) return
+    toolDrag = { tool, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, active: false }
+  }
+
+  function onToolMove(event: PointerEvent) {
+    if (!toolDrag) return
+    toolDrag.x = event.clientX
+    toolDrag.y = event.clientY
+    if (!toolDrag.active && Math.hypot(event.clientX - toolDrag.startX, event.clientY - toolDrag.startY) > 6) {
+      toolDrag.active = true
+      picker = null
+    }
+  }
+
+  function onToolUp(event: PointerEvent) {
+    const drag = toolDrag
+    toolDrag = null
+    // A plain click is handled by the button itself.
+    if (!drag?.active) return
+    const over = document.elementFromPoint(event.clientX, event.clientY)
+    if (!over?.closest('.board-viewport') || over.closest('.board-dock, .board-corner')) return
+    dropTool(drag.tool, toBoard(event.clientX, event.clientY))
+  }
+
+  /** Adds what a dock tool makes, centered where it was dropped. */
+  function dropTool(tool: DockTool, at: { x: number; y: number }) {
+    switch (tool) {
+      case 'text':
+        return addText(at, '', 260, true)
+      case 'note': {
+        const note = store.createNote({ select: false })
+        if (!note) return
+        addNode({ type: 'file', file: note.path, width: 280, height: 220 }, at, true)
+        return store.openInPanel(note.id, 0)
+      }
+      case 'image':
+        filesAt = at
+        return imageInput.click()
+      case 'chart':
+        return addText(at, TEMPLATES[0].text, TEMPLATES[0].width, true)
+      case 'board':
+        addNode({ type: 'file', file: boards.create('Untitled board'), width: 150, height: 160 }, at, true)
+        return
+      case 'column':
+        return addColumn(at, true)
+      case 'color':
+        return addSwatch(at, true)
+      case 'shape':
+        return addCircle(at, true)
+    }
   }
 
   async function openFile(path: string) {
@@ -468,6 +590,16 @@
     return colors.size === 1 ? [...colors][0] : undefined
   })
 
+  /** Selected arrows, whose line style the Line picker shows and changes. */
+  const selectedEdges = $derived((board?.data.edges ?? []).filter((e) => selected.has(e.id)))
+  let lineStyleOpen = $state(false)
+
+  function setLineStyle(change: Partial<EdgeStyle>) {
+    boards.update((data) => {
+      for (const edge of data.edges) if (selected.has(edge.id)) setEdgeStyle(edge, change)
+    })
+  }
+
   const selectedBoard = $derived.by(() => {
     if (selected.size !== 1) return null
     const node = nodes.find((n) => selected.has(n.id))
@@ -500,7 +632,8 @@
         // A swatch is its color: a card color becomes its new color, and it can't have none.
         if ('type' in item && kindOf(item as CanvasNode) === 'swatch') {
           const hex = colorOf(color ?? undefined)
-          if (hex) setSwatch(item as CanvasNode, hex, swatchOf(item as CanvasNode).name)
+          const before = swatchOf(item as CanvasNode)
+          if (hex) setSwatch(item as CanvasNode, hex, swatchNameAfter(before.hex, before.name, hex))
           continue
         }
         if (color) item.color = color
@@ -795,8 +928,9 @@
 
   function onKeyDown(event: KeyboardEvent) {
     if (iconFor) return
-    if (paletteOpen && event.key === 'Escape') {
+    if ((paletteOpen || lineStyleOpen) && event.key === 'Escape') {
       paletteOpen = false
+      lineStyleOpen = false
       event.preventDefault()
       return
     }
@@ -835,17 +969,30 @@
 
   const hasFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false
 
+  /** A link dragged in from a browser's address bar or a page. */
+  const hasLink = (event: DragEvent) => event.dataTransfer?.types.includes('text/uri-list') ?? false
+
   function onDragOver(event: DragEvent) {
-    if (!hasFiles(event)) return
+    if (!hasFiles(event) && !hasLink(event)) return
     event.preventDefault()
     dropping = true
   }
 
   function onDrop(event: DragEvent) {
     dropping = false
-    if (!hasFiles(event)) return
+    if (hasFiles(event)) {
+      event.preventDefault()
+      void addFiles([...(event.dataTransfer?.files ?? [])], toBoard(event.clientX, event.clientY))
+      return
+    }
+    // A uri-list has one address per line; lines starting with # are comments.
+    const url = event.dataTransfer
+      ?.getData('text/uri-list')
+      .split(/\r?\n/)
+      .find((line) => /^https?:\/\//i.test(line.trim()))
+    if (!url) return
     event.preventDefault()
-    void addFiles([...(event.dataTransfer?.files ?? [])], toBoard(event.clientX, event.clientY))
+    addLink(url.trim(), toBoard(event.clientX, event.clientY), true)
   }
 
   function renameBoard(event: Event) {
@@ -857,12 +1004,15 @@
 </script>
 
 <svelte:window
+  onpointermove={onToolMove}
+  onpointerup={onToolUp}
   onkeydown={onKeyDown}
   onpaste={onPaste}
   onpointerdown={(e) => {
     // A click anywhere else closes the icon picker or the palette, so the board's keys work again.
     if (iconFor && !(e.target as Element).closest('.icon-picker-anchor, .icon-toggle')) iconFor = null
     if (paletteOpen && !(e.target as Element).closest('.palette-anchor, .palette-toggle')) paletteOpen = false
+    if (lineStyleOpen && !(e.target as Element).closest('.line-style-anchor, .line-style-toggle')) lineStyleOpen = false
   }}
 />
 
@@ -938,6 +1088,23 @@
           {/if}
         </div>
       </div>
+      {#if selectedEdges.length}
+        <div class="insert">
+          <button
+            class="text-button line-style-toggle"
+            title="Line style: shape, pattern, thickness and arrowheads"
+            aria-expanded={lineStyleOpen}
+            onclick={() => (lineStyleOpen = !lineStyleOpen)}
+          >
+            <Icon name="spline" /> <span class="button-label">Line</span>
+          </button>
+          {#if lineStyleOpen}
+            <div class="picker line-style-anchor">
+              <LineStylePicker value={edgeStyle(selectedEdges[0])} onchange={setLineStyle} />
+            </div>
+          {/if}
+        </div>
+      {/if}
       {#if selectedBoard}
         <div class="insert">
           <button class="text-button icon-toggle" title="Change this board's icon" aria-expanded={iconFor === selectedBoard} onclick={() => (iconFor = iconFor === selectedBoard ? null : selectedBoard)}>
@@ -994,22 +1161,22 @@
       {#each shownGroups as node (node.id)}{@render card(node)}{/each}
       {#each shownInColumns as node (node.id)}{@render card(node)}{/each}
       <svg class="board-arrows" width="1" height="1" aria-hidden="true">
-        {#each arrows as { edge, shape, color } (edge.id)}
+        {#each arrows as { edge, shape, color, width, dash, head } (edge.id)}
           <g class="arrow" class:selected={selected.has(edge.id)} style:--arrow-color={color}>
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <path
               class="arrow-hit"
               d={shape.d}
-              stroke-width={lineWidth + 12 / view.zoom}
+              stroke-width={width + 12 / view.zoom}
               onpointerdown={(e) => onEdgeDown(e, edge)}
               ondblclick={(e) => {
                 e.stopPropagation()
                 editingId = edge.id
               }}
             />
-            <path class="arrow-line" d={shape.d} stroke-width={lineWidth} />
-            {#if shape.startHead}<path class="arrow-head" d={shape.startHead} />{/if}
-            {#if shape.endHead}<path class="arrow-head" d={shape.endHead} />{/if}
+            <path class="arrow-line" d={shape.d} stroke-width={width} stroke-dasharray={dash} />
+            {#if shape.startHead}<path class="arrow-head head-{head}" d={shape.startHead} stroke-width={width} />{/if}
+            {#if shape.endHead}<path class="arrow-head head-{head}" d={shape.endHead} stroke-width={width} />{/if}
           </g>
         {/each}
         {#if preview}
@@ -1053,23 +1220,46 @@
       {#each shownCards as node (node.id)}{@render card(node)}{/each}
     </div>
     {#if !nodes.length}
-      <p class="board-empty">Double-click to add text, or drop images, PDFs, videos and documents here.<br />Use the toolbar at the bottom to add notes, boards and columns.</p>
+      <p class="board-empty">Double-click to add text, or drop images, PDFs, videos and documents here.<br />Use the toolbar at the bottom to add notes, boards and walls.</p>
     {/if}
   </div>
 
-  <div class="board-dock" role="toolbar" aria-label="Add to board">
-    <button class="dock-button" title="Add text (or double-click the board)" onclick={() => addText()}><Icon name="text" /></button>
+  <!-- Click a tool to add it in the middle of the window, or drag it to where it should go. -->
+  <div class="board-dock" class:dragging={toolDrag?.active} role="toolbar" aria-label="Add to board">
+    <button class="dock-button" data-tip="Text" aria-label="Text: click, or drag onto the board" onpointerdown={(e) => onToolDown(e, 'text')} onclick={() => addText()}>
+      <DockIcon tool="text" />
+    </button>
     <div class="insert">
-      <button class="dock-button" title="Add a note" aria-expanded={picker === 'note'} onclick={() => (picker = picker === 'note' ? null : 'note')}>
-        <Icon name="notes" />
+      <button
+        class="dock-button"
+        data-tip="Note" aria-label="Note: click to pick one, or drag to add a new one"
+        aria-expanded={picker === 'note'}
+        onpointerdown={(e) => onToolDown(e, 'note')}
+        onclick={() => (picker = picker === 'note' ? null : 'note')}
+      >
+        <DockIcon tool="note" />
       </button>
       {#if picker === 'note'}
         <CardPicker kind="note" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
       {/if}
     </div>
+    <button
+      class="dock-button"
+      data-tip="Images and files" aria-label="Images, PDFs, videos or documents: click, drag onto the board, or drop files in"
+      onpointerdown={(e) => onToolDown(e, 'image')}
+      onclick={() => imageInput.click()}
+    >
+      <DockIcon tool="image" />
+    </button>
     <div class="insert">
-      <button class="dock-button" title="Add a table, chart or diagram" aria-expanded={picker === 'chart'} onclick={() => (picker = picker === 'chart' ? null : 'chart')}>
-        <Icon name="chart" />
+      <button
+        class="dock-button"
+        data-tip="Table, chart or diagram" aria-label="Table, chart or diagram: click to pick one, or drag to add a table"
+        aria-expanded={picker === 'chart'}
+        onpointerdown={(e) => onToolDown(e, 'chart')}
+        onclick={() => (picker = picker === 'chart' ? null : 'chart')}
+      >
+        <DockIcon tool="chart" />
       </button>
       {#if picker === 'chart'}
         <div class="menu chart-menu" role="menu">
@@ -1085,21 +1275,42 @@
         </div>
       {/if}
     </div>
+    <span class="dock-divider"></span>
     <div class="insert">
-      <button class="dock-button" title="Add a board" aria-expanded={picker === 'board'} onclick={() => (picker = picker === 'board' ? null : 'board')}>
-        <Icon name="board" />
+      <button
+        class="dock-button"
+        data-tip="Board" aria-label="Board: click to pick one, or drag to add a new one"
+        aria-expanded={picker === 'board'}
+        onpointerdown={(e) => onToolDown(e, 'board')}
+        onclick={() => (picker = picker === 'board' ? null : 'board')}
+      >
+        <DockIcon tool="board" />
       </button>
       {#if picker === 'board'}
         <CardPicker kind="board" onnote={addNoteCard} onnewnote={addNewNote} onboard={addBoardCard} onnewboard={addNewBoard} onclose={() => (picker = null)} />
       {/if}
     </div>
-    <button class="dock-button" title="Add images, PDFs, videos or documents (or drop or paste them)" onclick={() => imageInput.click()}>
-      <Icon name="image" />
+    <button
+      class="dock-button"
+      data-tip="Wall" aria-label="Wall: cards dragged onto it stack top to bottom. Click, or drag onto the board"
+      onpointerdown={(e) => onToolDown(e, 'column')}
+      onclick={() => addColumn()}
+    >
+      <DockIcon tool="column" />
     </button>
-    <button class="dock-button" title="Add a color swatch" onclick={addSwatch}><Icon name="color" /></button>
+    <span class="dock-divider"></span>
+    <button class="dock-button" data-tip="Color swatch" aria-label="Color swatch: click, or drag onto the board" onpointerdown={(e) => onToolDown(e, 'color')} onclick={() => addSwatch()}>
+      <DockIcon tool="color" />
+    </button>
     <div class="insert">
-      <button class="dock-button" title="Add a shape" aria-expanded={picker === 'shape'} onclick={() => (picker = picker === 'shape' ? null : 'shape')}>
-        <Icon name="shapes" />
+      <button
+        class="dock-button"
+        data-tip="Shape" aria-label="Shape: click to pick one, or drag to add a circle"
+        aria-expanded={picker === 'shape'}
+        onpointerdown={(e) => onToolDown(e, 'shape')}
+        onclick={() => (picker = picker === 'shape' ? null : 'shape')}
+      >
+        <DockIcon tool="shape" />
       </button>
       {#if picker === 'shape'}
         <div class="menu chart-menu" role="menu">
@@ -1113,9 +1324,15 @@
         </div>
       {/if}
     </div>
-    <button class="dock-button" title="Add a column: cards dragged into it stack top to bottom" onclick={addColumn}><Icon name="column" /></button>
     <input class="hidden-input" type="file" multiple bind:this={imageInput} onchange={chooseFiles} />
   </div>
+
+  {#if toolDrag?.active}
+    <div class="tool-ghost" style:left="{toolDrag.x}px" style:top="{toolDrag.y}px" aria-hidden="true">
+      <DockIcon tool={toolDrag.tool} size={44} />
+      <span>{TOOL_NAMES[toolDrag.tool]}</span>
+    </div>
+  {/if}
 
   <div class="board-corner">
     {#if nodes.length}

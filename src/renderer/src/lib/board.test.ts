@@ -5,6 +5,9 @@ import {
   dropIntoColumn,
   duplicate,
   edgeShape,
+  edgeStyle,
+  setEdgeStyle,
+  type CanvasEdge,
   facingSides,
   freeSpot,
   kindOf,
@@ -203,6 +206,68 @@ describe('arrows', () => {
     expect(shape.startHead).toBe('')
     expect(shape.endHead.startsWith('M300,25 ')).toBe(true)
     expect(shape.mid).toEqual({ x: 200, y: 25 })
+  })
+})
+
+describe('arrow styles', () => {
+  const a = { x: 0, y: 0, width: 100, height: 50 }
+  const b = { x: 300, y: 200, width: 100, height: 50 }
+  const ends = { start: false, end: true }
+
+  it('draws a straight line side to side, with the head along it', () => {
+    const shape = edgeShape(a, 'right', b, 'left', ends, 14, { line: 'straight', head: 'filled' })
+    expect(shape.d).toBe('M100,25 L300,225')
+    expect(shape.mid).toEqual({ x: 200, y: 125 })
+    expect(shape.endHead.startsWith('M300,225 ')).toBe(true)
+  })
+
+  it('draws an elbow line out of each side with right-angled, rounded turns', () => {
+    const shape = edgeShape(a, 'right', b, 'left', ends, 14, { line: 'elbow', head: 'filled' })
+    // Out of the right side, across to halfway, down, then into the left side.
+    expect(shape.d.startsWith('M100,25 L')).toBe(true)
+    expect(shape.d).toContain('Q200,25 ')
+    expect(shape.d).toContain('Q200,225 ')
+    expect(shape.d.endsWith(' L300,225')).toBe(true)
+    // The head points straight in, from the left.
+    expect(shape.endHead.startsWith('M300,225 L286,')).toBe(true)
+    expect(shape.mid).toEqual({ x: 200, y: 125 })
+  })
+
+  it('turns once toward a point while an elbow line is being drawn', () => {
+    const shape = edgeShape(a, 'right', { x: 300, y: 200 }, null, ends, 14, { line: 'elbow', head: 'filled' })
+    expect(shape.d).toContain('Q300,25 ')
+    expect(shape.d.endsWith(' L300,200')).toBe(true)
+  })
+
+  it('draws open heads as two strokes and closed ones as triangles', () => {
+    const open = edgeShape(a, 'right', b, 'left', ends, 14, { line: 'straight', head: 'open' }).endHead
+    const closed = edgeShape(a, 'right', b, 'left', ends, 14, { line: 'straight', head: 'closed' }).endHead
+    expect(open.endsWith('Z')).toBe(false)
+    expect(open).toContain('L300,225 L')
+    expect(closed.endsWith('Z')).toBe(true)
+  })
+
+  it('reads defaults, and keeps defaults out of the file', () => {
+    const edge: CanvasEdge = { id: 'e', fromNode: 'a', toNode: 'b' }
+    expect(edgeStyle(edge)).toEqual({ line: 'curved', pattern: 'solid', weight: 'medium', head: 'filled', ends: 'end' })
+    setEdgeStyle(edge, { line: 'elbow', pattern: 'dotted', weight: 'thick', head: 'open', ends: 'both' })
+    expect(edge).toEqual({ id: 'e', fromNode: 'a', toNode: 'b', btLine: 'elbow', btPattern: 'dotted', btWeight: 'thick', btHead: 'open', fromEnd: 'arrow' })
+    expect(edgeStyle(edge)).toEqual({ line: 'elbow', pattern: 'dotted', weight: 'thick', head: 'open', ends: 'both' })
+    setEdgeStyle(edge, { line: 'curved', pattern: 'solid', weight: 'medium', head: 'filled', ends: 'end' })
+    expect(edge).toEqual({ id: 'e', fromNode: 'a', toNode: 'b' })
+  })
+
+  it('stores arrowheads in JSON Canvas fields', () => {
+    const edge: CanvasEdge = { id: 'e', fromNode: 'a', toNode: 'b' }
+    setEdgeStyle(edge, { ends: 'none' })
+    expect([edge.fromEnd, edge.toEnd]).toEqual([undefined, 'none'])
+    setEdgeStyle(edge, { ends: 'start' })
+    expect([edge.fromEnd, edge.toEnd]).toEqual(['arrow', 'none'])
+    expect(edgeStyle(edge).ends).toBe('start')
+  })
+
+  it('ignores styles it does not know', () => {
+    expect(edgeStyle({ id: 'e', fromNode: 'a', toNode: 'b', btLine: 'zigzag', btWeight: 7 }).line).toBe('curved')
   })
 })
 

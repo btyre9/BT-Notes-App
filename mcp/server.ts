@@ -10,6 +10,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
+import { ARROW_ENDS, HEAD_SHAPES, LINE_PATTERNS, LINE_TYPES, LINE_WEIGHTS } from '../src/renderer/src/lib/board.ts'
 import { notesRoot } from '../src/shared/notesRoot.ts'
 import { addCards, BoardError, createBoard, listBoards, NotesFolder, readBoard, removeCards, updateCards } from './boards.ts'
 
@@ -20,9 +21,9 @@ const INSTRUCTIONS = `BT Notes is the user's visual notes app. A board is a canv
 Making good boards:
 - Start with list_boards, and read_board before changing a board, so you know what's there.
 - Mood boards: images plus a few short text cards, with swatches for a color palette.
-- Lists, steps and categories: make columns, then add cards into them with "column". Columns stack their cards top to bottom.
+- Lists, steps and categories: make columns, then add cards into them with "column". Columns stack their cards top to bottom. The user calls columns "walls" (the app shows them as walls); use that word when talking to them, and kind "column" in these tools.
 - Tables: Markdown tables in text cards. Charts and diagrams: a \`\`\`mermaid block in a text card (pie, xychart-beta bar/line, flowchart, timeline, mindmap). Note cards show only a plain preview of the note, so put tables and charts in text cards, not notes.
-- Use arrows to show flow or cause and effect, with short labels.
+- Use arrows to show flow or cause and effect, with short labels. Arrows can be curved, straight or elbow (right angles), solid, dashed or dotted, thin to thick, with filled, outlined or open heads at either end; elbow lines suit process flows, dashed lines suit loose or optional links.
 - Leave x/y out and cards are laid out in rows beside what's already on the board.
 - For a big topic, create a board per subtopic and put board cards for them on the parent board.
 Image and file paths can be anywhere on this computer; they're copied into the notes folder. Changes show up in the app within a few seconds.`
@@ -60,11 +61,21 @@ const cardSpec = z.object({
   height: z.number().optional(),
 })
 
+/** An arrow's line style; anything left out keeps its current value, or the default on a new arrow. */
+const lineStyle = {
+  line: z.enum(LINE_TYPES).optional().describe('curved (default), straight, or elbow (right angles).'),
+  pattern: z.enum(LINE_PATTERNS).optional().describe('solid (default), dashed or dotted.'),
+  weight: z.enum(LINE_WEIGHTS).optional().describe('thin, medium (default) or thick.'),
+  head: z.enum(HEAD_SHAPES).optional().describe('Arrowhead shape: filled (default), closed (outline) or open (two strokes).'),
+  ends: z.enum(ARROW_ENDS).optional().describe('Which ends have arrowheads: end (default), start, both or none.'),
+}
+
 const arrowSpec = z.object({
   from: z.string().describe('A card ref from this request, or a card id from read_board.'),
   to: z.string(),
   label: z.string().optional(),
   color: z.string().optional(),
+  ...lineStyle,
 })
 
 server.registerTool(
@@ -125,7 +136,7 @@ server.registerTool(
   'update_cards',
   {
     title: 'Change cards',
-    description: "Changes cards' text, color, name, position or size, or arrows' labels and colors, by id.",
+    description: "Changes cards' text, color, name, position or size, or arrows' labels, colors and line styles, by id.",
     inputSchema: {
       board: boardParam,
       cards: z.array(
@@ -139,6 +150,7 @@ server.registerTool(
           y: z.number().optional(),
           width: z.number().optional(),
           height: z.number().optional(),
+          ...lineStyle,
         }),
       ),
     },
