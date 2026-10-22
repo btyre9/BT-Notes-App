@@ -1,4 +1,6 @@
-# BT Notes — Plan
+# Vizual Notes — Plan
+
+*Formerly BT Notes (renamed 2026-10-22); folder and file names below keep the old name.*
 
 A visual notes app that works like Storyflow. It opens to boards of notes, images, files, tables, charts and diagrams, linked by arrows and sorted into columns. Under the boards is a Markdown notes app with Bear's look and a few of Craft's features. Claude can build and read boards. It runs on Windows and Mac, keeps its notes in personal OneDrive, and uses an Apple Shortcut on the iPhone for quick capture. A web version will open the same notes in any browser, including on the phone.
 
@@ -153,7 +155,7 @@ Each phase ends with a check that has to pass before the next one starts.
    - Cards: text, an existing note (title and first lines; double-click opens it in the editor), images, and other boards.
    - Drop or paste images onto a board. They're copied into `Attachments/`.
    - *Check:* a board with 200 photos pans and zooms smoothly. ✅ 200 generated 12-megapixel photos, all on screen: 60 frames a second while panning, no frame over 50 ms.
-   - *Check:* a board made in BT Notes opens in Obsidian with its cards and images in place. ⏳
+   - *Check:* a board made in Vizual Notes opens in Obsidian with its cards and images in place. ⏳
 5. **Columns and arrows.** Built and tested on Windows, 2026-10-20.
    - Cards dropped into a column stack top to bottom. When one is pulled out, the rest close up.
    - Drag from a card's edge to another card to draw an arrow. Arrows can have a label.
@@ -166,7 +168,7 @@ Each phase ends with a check that has to pass before the next one starts.
 7. **Tables, charts and diagrams.** Built and tested on Windows, 2026-10-20.
    - Markdown tables and Mermaid blocks in text cards are drawn on the board.
    - **Chart** in the toolbar adds a table, pie, bar or line chart, flowchart or timeline to edit.
-   - *Check:* a table, a pie chart and a flowchart show correctly in BT Notes and in Obsidian. ✅ BT Notes. ⏳ Obsidian.
+   - *Check:* a table, a pie chart and a flowchart show correctly in Vizual Notes and in Obsidian. ✅ Vizual Notes. ⏳ Obsidian.
 8. **Claude.** Built and tested on Windows, 2026-10-20: the MCP server in `mcp/` and [docs/board-format.md](docs/board-format.md).
    - A short guide to the board format in the project, so Claude Code builds valid boards.
    - A local MCP server for the Claude desktop app: list boards, read a board, add cards, columns and arrows.
@@ -211,7 +213,7 @@ Each phase ends with a check that has to pass before the next one starts.
     - Boards, notes, images, PDFs (with pdf.js) and videos. Previews come from OneDrive, which makes thumbnails of images, videos and documents.
     - Changes from other devices come in through Graph's change tracking (delta queries).
     - Hosted on Vercel (Hobby plan).
-    - *Check:* on a computer that has never had BT Notes, sign in at the web address, edit a board, and the change shows up in the Mac app within a minute.
+    - *Check:* on a computer that has never had Vizual Notes, sign in at the web address, edit a board, and the change shows up in the Mac app within a minute.
 16. **Phone.**
     - Layouts for a small screen; pinch to zoom, drag with a finger, and a long press for what right-click does.
     - Add a photo from the camera or photo library straight onto a board.

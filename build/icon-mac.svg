@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <!-- BT Notes for the Mac: a small board (a wall of cards, a photo, a folder, an arrow) on a dark
+  <!-- Vizual Notes for the Mac: a small board (a wall of cards, a photo, a folder, an arrow) on a dark
        canvas, on Apple's icon grid: an 824-point rounded square, 100 points in, with a soft shadow. -->
   <defs>
     <linearGradient id="canvas" x1="0" y1="0" x2="0" y2="1">

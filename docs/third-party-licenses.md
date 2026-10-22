@@ -1,6 +1,6 @@
 # Third-party licenses
 
-Code and data from other projects that BT Notes includes in its own source, rather than as an npm package.
+Code and data from other projects that Vizual Notes includes in its own source, rather than as an npm package.
 
 ## color-name-list
 

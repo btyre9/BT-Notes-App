@@ -1,4 +1,6 @@
-# BT Notes
+# Vizual Notes
+
+*Formerly BT Notes. The notes folder, the app's settings folder, the Apple Notes import and this project's folder keep the old name.*
 
 Boards of notes, images and text, on top of Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files and boards are `.canvas` files (Obsidian's JSON Canvas format) in a `BT Notes` folder in iCloud Drive. See [PLAN.md](PLAN.md) for the design and roadmap.
 
@@ -11,8 +13,8 @@ npm install
 npm run dist:win
 ```
 
-Run `dist\BT Notes Setup 0.1.0.exe`. On a work laptop, use **File → Change Notes Folder…** to point it at a work folder, such as one in your company OneDrive (see [Folders](#folders)).
-- **No admin rights needed:** it installs for your user only, into `%LOCALAPPDATA%\Programs\BT Notes`, and adds Start menu and desktop shortcuts.
+Run `dist\Vizual Notes Setup 0.1.0.exe`. On a work laptop, use **File → Change Notes Folder…** to point it at a work folder, such as one in your company OneDrive (see [Folders](#folders)).
+- **No admin rights needed:** it installs for your user only, into `%LOCALAPPDATA%\Programs\Vizual Notes`, and adds Start menu and desktop shortcuts. If BT Notes is installed from before the rename, uninstall it in **Settings → Apps**; Vizual Notes keeps its settings.
 - **Windows warning:** the installer isn't code-signed, so the first time you run it Windows SmartScreen may say "Windows protected your PC". Choose **More info → Run anyway**.
 - **Uninstall:** use **Settings → Apps**.
 
@@ -38,9 +40,9 @@ Mac apps have to be built on a Mac, so the steps run there.
 
    The app opens `BT Notes` in iCloud Drive. That's enough to use it; it runs until you close Terminal.
    - **If it says "Electron uninstall":** run `node node_modules/electron/install.js` (npm sometimes skips Electron's download), then `npm run dev` again.
-4. To install it as a normal app, run `npm run dist:mac`, open the `.dmg` it makes in `dist/`, and drag **BT Notes** to Applications.
+4. To install it as a normal app, run `npm run dist:mac`, open the `.dmg` it makes in `dist/`, and drag **Vizual Notes** to Applications.
    - **The app isn't signed by an Apple developer account**, so the first time, right-click it in Applications and choose **Open**, then **Open** again.
-   - **If macOS says the app "is damaged"**, run `xattr -cr "/Applications/BT Notes.app"` in Terminal and open it again.
+   - **If macOS says the app "is damaged"**, run `xattr -cr "/Applications/Vizual Notes.app"` in Terminal and open it again.
 
 For Claude on the Mac, use the steps under [Claude](#claude) with `~/BT-Notes-App/mcp/server.ts` as the path.
 
@@ -156,7 +158,7 @@ The tools: `list_boards`, `read_board`, `create_board`, `add_cards` (cards, wall
 
 ## Apple Notes capture (Mac)
 
-Notes you jot down in Apple Notes, on the iPhone or the Mac, can move into BT Notes. Put them in a Notes folder called **Capture**, then run this on the Mac:
+Notes you jot down in Apple Notes, on the iPhone or the Mac, can move into Vizual Notes. Put them in a Notes folder called **Capture**, then run this on the Mac:
 
 ```bash
 npm run import-notes
@@ -180,7 +182,7 @@ It uses the notes folder the app last opened, or `BT_NOTES_ROOT`.
 npm run import-notes:install
 ```
 
-This has launchd, the Mac's scheduler, run the import every 5 minutes and at login, quietly in the background. Run it from the copy of BT Notes in your home folder (`~/BT-Notes-App`), not one on an external drive.
+This has launchd, the Mac's scheduler, run the import every 5 minutes and at login, quietly in the background. Run it from the copy of Vizual Notes in your home folder (`~/BT-Notes-App`), not one on an external drive.
 
 - **First scheduled run:** macOS asks whether node may control Notes. Choose **OK**.
 - **What it did:** each import that found notes is listed in `~/Library/Logs/BT Notes/import.log`.

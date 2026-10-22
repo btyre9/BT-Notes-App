@@ -9,6 +9,10 @@ import { docInfo } from './docInfo'
 import { fileVersion, handleScheme, registerScheme, savePdfPreview } from './files'
 import { Vault } from './vault'
 
+// The app was called BT Notes. Its settings folder keeps that name, so the saved notes folder,
+// previews and board views carry over, and the MCP server and Apple Notes import still find them.
+app.setPath('userData', join(app.getPath('appData'), 'BT Notes'))
+
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 
 let win: BrowserWindow | null = null
@@ -140,7 +144,7 @@ function createWindow(): void {
     height: 780,
     minWidth: 760,
     minHeight: 480,
-    title: 'BT Notes',
+    title: 'Vizual Notes',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e20' : '#ffffff',
     webPreferences: { preload: join(__dirname, '../preload/index.js') },
   })
@@ -163,7 +167,7 @@ registerScheme()
 
 app.whenReady().then(async () => {
   // A built Mac app gets its icon from the app bundle; run from source, the Dock would show
-  // Electron's, so show BT Notes's instead.
+  // Electron's, so show Vizual Notes's instead.
   if (process.platform === 'darwin' && !app.isPackaged) {
     const icon = join(app.getAppPath(), 'build', 'icon-mac.png')
     if (existsSync(icon)) app.dock?.setIcon(icon)

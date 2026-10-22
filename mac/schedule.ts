@@ -72,7 +72,7 @@ function launchctl(...args: string[]): boolean {
 function install(): void {
   const script = resolve(dirname(fileURLToPath(import.meta.url)), 'import-apple-notes.ts')
   if (script.startsWith('/Volumes/')) {
-    console.error(`This copy of BT Notes is on an external drive (${script}).`)
+    console.error(`This copy of Vizual Notes is on an external drive (${script}).`)
     console.error('Install from a copy in your home folder, such as ~/BT-Notes-App, so the import runs when the drive is unplugged.')
     process.exit(1)
   }

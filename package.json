@@ -1,6 +1,6 @@
 {
   "name": "bt-notes",
-  "productName": "BT Notes",
+  "productName": "Vizual Notes",
   "version": "0.1.0",
   "private": true,
   "description": "Markdown notes with Bear's look, synced through a cloud folder.",
@@ -52,7 +52,7 @@
   "author": "Brian Tyre",
   "build": {
     "appId": "com.btyre.btnotes",
-    "productName": "BT Notes",
+    "productName": "Vizual Notes",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -67,7 +67,7 @@
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "shortcutName": "BT Notes"
+      "shortcutName": "Vizual Notes"
     },
     "mac": {
       "target": "dmg",

@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 /**
- * Where to look for BT Notes when no folder has been chosen: iCloud Drive first, where it lives
+ * Where to look for the notes folder (still called BT Notes) when none has been chosen: iCloud Drive first, where it lives
  * now, then Dropbox, where it lived before. On a Mac, iCloud Drive is ~/Library/Mobile
  * Documents/com~apple~CloudDocs and current Dropbox versions use ~/Library/CloudStorage; on
  * Windows, iCloud for Windows uses ~/iCloudDrive.
@@ -43,6 +43,7 @@ function settingsFile(): string {
       : process.platform === 'darwin'
         ? join(homedir(), 'Library', 'Application Support')
         : join(homedir(), '.config')
+  // The app's settings folder kept the app's old name, BT Notes.
   return join(appData, 'BT Notes', 'settings.json')
 }
 

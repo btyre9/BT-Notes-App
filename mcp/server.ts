@@ -1,5 +1,5 @@
 /**
- * BT Notes boards for Claude: a local MCP server that lists, reads and builds the boards in the
+ * Vizual Notes (formerly BT Notes) boards for Claude: a local MCP server that lists, reads and builds the boards in the
  * notes folder. It runs on this computer over stdio; nothing is sent anywhere else.
  *
  *   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mcp/server.ts
@@ -16,7 +16,7 @@ import { addCards, BoardError, createBoard, listBoards, NotesFolder, readBoard, 
 
 const folder = new NotesFolder(notesRoot())
 
-const INSTRUCTIONS = `BT Notes is the user's visual notes app. A board is a canvas of cards: text (Markdown), notes, images, PDFs, videos, files, links, color swatches, columns, and cards that open other boards. Arrows connect cards. The app opens to the Home board.
+const INSTRUCTIONS = `Vizual Notes (formerly BT Notes; its notes folder is still called BT Notes) is the user's visual notes app. A board is a canvas of cards: text (Markdown), notes, images, PDFs, videos, files, links, color swatches, columns, and cards that open other boards. Arrows connect cards. The app opens to the Home board.
 
 Making good boards:
 - Start with list_boards, and read_board before changing a board, so you know what's there.

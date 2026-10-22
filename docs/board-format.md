@@ -48,7 +48,7 @@ The app stacks a column's cards 14 units inside its left edge, starting 48 units
 - Sides are `top`, `right`, `bottom` or `left`. Without them, the app joins the sides that face each other.
 - `toEnd` is `"arrow"` by default; `"none"` draws a plain line. `fromEnd: "arrow"` adds a head at the start.
 - `color` works as it does for cards.
-- **Line style** (BT Notes fields; Obsidian ignores them and draws a plain curve). Leave a field out for its default:
+- **Line style** (Vizual Notes fields; Obsidian ignores them and draws a plain curve). Leave a field out for its default:
   - `btLine`: `"curved"` (default), `"straight"` or `"elbow"` (right angles with rounded corners)
   - `btPattern`: `"solid"` (default), `"dashed"` or `"dotted"`
   - `btWeight`: `"thin"`, `"medium"` (default) or `"thick"`

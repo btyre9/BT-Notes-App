@@ -1,6 +1,6 @@
-# BT Notes — notes for Claude
+# Vizual Notes — notes for Claude
 
-BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images and files on top of Markdown notes with Bear's look. Electron + Svelte 5 + CodeMirror 6. [README.md](README.md) explains how to use and run it; [PLAN.md](PLAN.md) has the decisions, phases and checks. Read both before changing anything.
+Vizual Notes (renamed from BT Notes on 2026-10-22) is the user's own Milanote/Storyflow-style app: boards of notes, images and files on top of Markdown notes with Bear's look. Electron + Svelte 5 + CodeMirror 6. [README.md](README.md) explains how to use and run it; [PLAN.md](PLAN.md) has the decisions, phases and checks. Read both before changing anything.
 
 ## Where the code lives
 
@@ -12,6 +12,8 @@ BT Notes is the user's own Milanote/Storyflow-style app: boards of notes, images
 - **Trying changes in the app:** `BT_NOTES_ROOT=~/BT-Notes-Test npx electron-vite dev --remoteDebuggingPort 9333` opens a test notes folder (with demo boards: Campaign Brief, Spaces, Lines demo, Swatches demo) and lets a script drive the window and take screenshots through the Chrome DevTools Protocol. The user may be clicking around in that window at the same time, so don't assume every change on a test board was yours. Main-process or preload changes need the app restarted.
 
 ## The user's words
+
+- **Vizual Notes:** the app's name since 2026-10-22. Only the name shown to people changed: the notes folder (`BT Notes`), the settings folder (pinned in `src/main/index.ts`), the launchd job and its log, the project folders, the repo and the app ID keep the old name on purpose.
 
 - **Wall:** what the code and file format call a column (`btColumn`, `kind: 'column'`, `COLUMN`). Say "wall" to the user and in the app's text; keep the code and file names.
 - **Folder:** a board card on a board (a `file` card pointing at a `.canvas`), drawn as a folder.
