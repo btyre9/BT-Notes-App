@@ -424,6 +424,57 @@ export function facingSides(a: Rect, b: Rect): [Side, Side] {
   return dy >= 0 ? ['bottom', 'top'] : ['top', 'bottom']
 }
 
+// ---- Where a folder is ----
+
+/** The boards a board holds as folder cards, in card order. */
+export function childBoards(data: CanvasData): string[] {
+  return data.nodes.filter((n) => n.type === 'file' && typeof n.file === 'string' && isBoardPath(n.file)).map((n) => n.file as string)
+}
+
+/**
+ * The shortest way from Home down to a board through folder cards, as board paths from Home to
+ * the board, or null if no board on the way from Home holds it. Paths compare without case.
+ */
+export function pathFromHome(boards: Iterable<{ path: string; data: CanvasData }>, target: string): string[] | null {
+  const byKey = new Map([...boards].map((b) => [b.path.toLowerCase(), b]))
+  const home = byKey.get(HOME_BOARD.toLowerCase())
+  if (!home) return null
+  const goal = target.toLowerCase()
+  const cameFrom = new Map<string, string | null>([[home.path.toLowerCase(), null]])
+  const queue = [home.path]
+  while (queue.length) {
+    const path = queue.shift()!
+    if (path.toLowerCase() === goal) {
+      const route: string[] = []
+      for (let at: string | null = path; at; at = cameFrom.get(at.toLowerCase()) ?? null) route.unshift(byKey.get(at.toLowerCase())?.path ?? at)
+      return route
+    }
+    for (const child of childBoards(byKey.get(path.toLowerCase())?.data ?? { nodes: [], edges: [] })) {
+      if (cameFrom.has(child.toLowerCase()) || !byKey.has(child.toLowerCase())) continue
+      cameFrom.set(child.toLowerCase(), path)
+      queue.push(child)
+    }
+  }
+  return null
+}
+
+/**
+ * For a board no route from Home reaches: the boards above it, found by walking up through
+ * boards that hold it as a folder card, from the top one down to the board itself.
+ */
+export function parentChain(boards: Iterable<{ path: string; data: CanvasData }>, target: string): string[] {
+  const list = [...boards]
+  const route = [list.find((b) => b.path.toLowerCase() === target.toLowerCase())?.path ?? target]
+  const seen = new Set([target.toLowerCase()])
+  for (;;) {
+    const below = route[0].toLowerCase()
+    const parent = list.find((b) => !seen.has(b.path.toLowerCase()) && childBoards(b.data).some((c) => c.toLowerCase() === below))
+    if (!parent) return route
+    route.unshift(parent.path)
+    seen.add(parent.path.toLowerCase())
+  }
+}
+
 /** A value if it's one of the allowed ones, else the fallback. */
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   (allowed as readonly unknown[]).includes(value) ? (value as T) : fallback

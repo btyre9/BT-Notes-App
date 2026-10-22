@@ -7,6 +7,8 @@ import {
   edgeShape,
   edgeStyle,
   canvasLookOf,
+  pathFromHome,
+  parentChain,
   setCanvasLook,
   setEdgeStyle,
   type CanvasData,
@@ -209,6 +211,36 @@ describe('arrows', () => {
     expect(shape.startHead).toBe('')
     expect(shape.endHead.startsWith('M300,25 ')).toBe(true)
     expect(shape.mid).toEqual({ x: 200, y: 25 })
+  })
+})
+
+describe('pathFromHome', () => {
+  const folder = (file: string) => node({ id: file, type: 'file', file })
+  const board = (path: string, children: string[] = []) => ({ path, data: { nodes: children.map(folder), edges: [] } as CanvasData })
+
+  it('finds the shortest way down through folder cards', () => {
+    const boards = [
+      board('Boards/Home.canvas', ['Boards/Spaces.canvas', 'Boards/Moodboard.canvas']),
+      board('Boards/Spaces.canvas', ['Boards/Moodboard.canvas', 'Boards/Kitchen.canvas']),
+      board('Boards/Moodboard.canvas'),
+      board('Boards/Kitchen.canvas'),
+    ]
+    expect(pathFromHome(boards, 'Boards/Kitchen.canvas')).toEqual(['Boards/Home.canvas', 'Boards/Spaces.canvas', 'Boards/Kitchen.canvas'])
+    expect(pathFromHome(boards, 'Boards/moodboard.canvas')).toEqual(['Boards/Home.canvas', 'Boards/Moodboard.canvas'])
+    expect(pathFromHome(boards, 'Boards/Home.canvas')).toEqual(['Boards/Home.canvas'])
+  })
+
+  it('walks up through the folders that hold a board that Home does not reach', () => {
+    const boards = [board('Boards/Home.canvas'), board('Boards/Spaces.canvas', ['Boards/Moodboard.canvas']), board('Boards/Moodboard.canvas', ['Boards/Spaces.canvas'])]
+    expect(pathFromHome(boards, 'Boards/Moodboard.canvas')).toBeNull()
+    expect(parentChain(boards, 'Boards/Moodboard.canvas')).toEqual(['Boards/Spaces.canvas', 'Boards/Moodboard.canvas'])
+    expect(parentChain(boards, 'Boards/Home.canvas')).toEqual(['Boards/Home.canvas'])
+  })
+
+  it('copes with loops and folders no board holds', () => {
+    const boards = [board('Boards/Home.canvas', ['Boards/A.canvas']), board('Boards/A.canvas', ['Boards/Home.canvas']), board('Boards/Lost.canvas')]
+    expect(pathFromHome(boards, 'Boards/Lost.canvas')).toBeNull()
+    expect(pathFromHome(boards, 'Boards/A.canvas')).toEqual(['Boards/Home.canvas', 'Boards/A.canvas'])
   })
 })
 

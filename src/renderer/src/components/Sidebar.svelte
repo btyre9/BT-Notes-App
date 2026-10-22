@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { boardName } from '../lib/board'
+  import { boardName, HOME_BOARD, type CanvasData } from '../lib/board'
   import { boardIconOf } from '../lib/boardIcons'
   import { boards } from '../lib/boards.svelte'
   import BoardTile from './BoardTile.svelte'
@@ -19,27 +19,9 @@
     { kind: 'untagged', label: 'Untagged', icon: 'untagged' },
   ]
 
-  let naming = $state(false)
-
   function openBoard(path: string) {
     store.mode = 'board'
     boards.open(path)
-  }
-
-  function createBoard(event: Event) {
-    const input = event.currentTarget as HTMLInputElement
-    const name = input.value.trim()
-    naming = false
-    if (name) openBoard(boards.create(name))
-  }
-
-  function onNameKey(event: KeyboardEvent) {
-    const input = event.currentTarget as HTMLInputElement
-    if (event.key === 'Enter') input.blur()
-    if (event.key === 'Escape') {
-      input.value = ''
-      input.blur()
-    }
   }
 
   /** The number shown beside a view: notes waiting in the Inbox, open tasks. */
@@ -57,26 +39,29 @@
 </script>
 
 <nav class="sidebar">
-  <div class="section-header">
-    <h2 class="section-title">Boards</h2>
-    <button class="section-add" title="New board" aria-label="New board" onclick={() => (naming = true)}><Icon name="plus" /></button>
+  <!-- Folders are found by opening them from Home. The sidebar keeps Home, the folders you star,
+       and the ones you opened last; the breadcrumb above a board shows where it sits. -->
+  {#snippet folderRow(board: { path: string; data: CanvasData }, label = boardName(board.path))}
+    <button class="nav-item" class:active={store.mode === 'board' && boards.current === board.path} onclick={() => openBoard(board.path)}>
+      <span class="sidebar-tile"><BoardTile icon={boardIconOf(board.data)} size={12} /></span>
+      <span class="label">{label}</span>
+    </button>
+  {/snippet}
+  <div class="views folder-home">
+    {#if boards.get(HOME_BOARD)}{@render folderRow(boards.get(HOME_BOARD)!, 'Home')}{/if}
   </div>
-  <div class="views">
-    {#each boards.list as board (board.path)}
-      <button
-        class="nav-item"
-        class:active={store.mode === 'board' && boards.current === board.path}
-        onclick={() => openBoard(board.path)}
-      >
-        <span class="sidebar-tile"><BoardTile icon={boardIconOf(board.data)} size={12} /></span>
-        <span class="label">{boardName(board.path)}</span>
-      </button>
-    {/each}
-    {#if naming}
-      <!-- svelte-ignore a11y_autofocus -->
-      <input class="board-name-input" placeholder="Board name" autofocus onblur={createBoard} onkeydown={onNameKey} />
-    {/if}
-  </div>
+  {#if boards.favorites.length}
+    <h2 class="section-title">Favorites</h2>
+    <div class="views">
+      {#each boards.favorites as board (board.path)}{@render folderRow(board)}{/each}
+    </div>
+  {/if}
+  {#if boards.recentList.length}
+    <h2 class="section-title">Recent</h2>
+    <div class="views">
+      {#each boards.recentList as board (board.path)}{@render folderRow(board)}{/each}
+    </div>
+  {/if}
   <h2 class="section-title">Notes</h2>
   <div class="views">
     {#each views as view (view.kind)}

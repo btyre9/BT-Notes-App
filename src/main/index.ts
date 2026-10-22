@@ -11,7 +11,8 @@ import { Vault } from './vault'
 
 // The app was called BT Notes. Its settings folder keeps that name, so the saved notes folder,
 // previews and board views carry over, and the MCP server and Apple Notes import still find them.
-app.setPath('userData', join(app.getPath('appData'), 'BT Notes'))
+// BT_NOTES_USER_DATA gives a test copy its own, so it can run beside the installed app.
+app.setPath('userData', process.env.BT_NOTES_USER_DATA || join(app.getPath('appData'), 'BT Notes'))
 
 const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 

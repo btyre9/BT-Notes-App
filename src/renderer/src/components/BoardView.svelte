@@ -1061,6 +1061,15 @@
     {#if boards.canGoBack}
       <button class="icon-button" title="Back" onclick={() => boards.back()}><Icon name="back" /></button>
     {/if}
+    <!-- Where this folder sits: Home › … › its parent, each a step back up. -->
+    <nav class="breadcrumb" aria-label="Where this folder is">
+      {#each boards.route.slice(0, -1) as step (step)}
+        <button class="crumb" title="Open {step === HOME_BOARD ? 'Home' : boardName(step)}" onclick={() => boards.open(step)}>
+          {step === HOME_BOARD ? 'Home' : boardName(step)}
+        </button>
+        <span class="crumb-separator" aria-hidden="true">›</span>
+      {/each}
+    </nav>
     <div class="insert">
       <button class="title-icon icon-toggle" title="Change this board's icon" aria-expanded={iconFor === boards.current} onclick={() => (iconFor = iconFor === boards.current ? null : boards.current)}>
         <BoardTile icon={boardIconOf(board?.data)} size={16} />
@@ -1082,6 +1091,13 @@
           onkeydown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
         />
       {/key}
+      <button
+        class="icon-button star-button"
+        class:on={board?.data.btFavorite === true}
+        title={board?.data.btFavorite === true ? 'Remove from Favorites' : 'Add to Favorites in the sidebar'}
+        aria-pressed={board?.data.btFavorite === true}
+        onclick={() => boards.toggleFavorite(boards.current)}><Icon name="star" /></button
+      >
     {/if}
     <span class="spacer"></span>
     <div class="insert">

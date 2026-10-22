@@ -5,6 +5,8 @@ import {
   BOARDS_DIR,
   emptyBoard,
   HOME_BOARD,
+  pathFromHome,
+  parentChain,
   layoutColumns,
   parseBoard,
   renameFile,
@@ -43,6 +45,28 @@ function readView(root: string, path: string): View | null {
   }
 }
 
+const RECENT_KEY = 'bt-recent-boards:'
+/** How many recently opened folders the sidebar shows. */
+const RECENT_SHOWN = 5
+
+/** Recently opened folders, newest first; per device, like remembered views. */
+function readRecent(root: string): string[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(`${RECENT_KEY}${root}`) ?? '[]')
+    return Array.isArray(raw) ? raw.filter((p): p is string => typeof p === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+function writeRecent(root: string, paths: string[]): void {
+  try {
+    localStorage.setItem(`${RECENT_KEY}${root}`, JSON.stringify(paths))
+  } catch {
+    // Storage full or unavailable.
+  }
+}
+
 function writeView(root: string, path: string, view: View): void {
   try {
     localStorage.setItem(`${VIEW_KEY}${root}|${key(path)}`, JSON.stringify(view))
@@ -76,6 +100,8 @@ class BoardsStore {
   private unreadable = new Set<string>()
   private viewTimer: ReturnType<typeof setTimeout> | undefined
   canGoBack = $state(false)
+  /** Folders opened on this device, newest first. */
+  private recent = $state<string[]>([])
 
   list = $derived(
     Object.values(this.boards).sort((a, b) =>
@@ -84,6 +110,21 @@ class BoardsStore {
   )
 
   board = $derived(this.boards[key(this.current)] ?? null)
+
+  /** Starred folders for the sidebar, by name. The star is kept in each folder's own file. */
+  favorites = $derived(this.list.filter((b) => b.path !== HOME_BOARD && b.data.btFavorite === true))
+
+  /** The last few folders opened on this device, newest first, without Home or Favorites, which are listed already. */
+  recentList = $derived(
+    this.recent
+      .filter((p) => key(p) !== key(HOME_BOARD))
+      .map((p) => this.boards[key(p)])
+      .filter((b): b is Board => !!b && b.data.btFavorite !== true)
+      .slice(0, RECENT_SHOWN),
+  )
+
+  /** The way down from Home to the open folder, through folder cards; else the folders above it. */
+  route = $derived(pathFromHome(Object.values(this.boards), this.current) ?? parentChain(Object.values(this.boards), this.current))
 
   get(path: string): Board | null {
     return this.boards[key(path)] ?? null
@@ -103,6 +144,7 @@ class BoardsStore {
     this.canGoBack = false
     this.current = HOME_BOARD
     this.selection = []
+    this.recent = readRecent(root)
   }
 
   private ensureHome(): void {
@@ -147,6 +189,21 @@ class BoardsStore {
     this.canGoBack = this.trail.length > 0
     this.current = this.get(path)?.path ?? path
     this.selection = []
+    this.setRecent([this.current, ...this.recent.filter((p) => key(p) !== key(this.current))].slice(0, 20))
+  }
+
+  private setRecent(paths: string[]): void {
+    this.recent = paths
+    writeRecent(this.root, paths)
+  }
+
+  /** Stars or unstars a folder; the star is kept in its file, so it shows on every device. */
+  toggleFavorite(path: string): void {
+    if (path === HOME_BOARD) return
+    this.update((data) => {
+      if (data.btFavorite === true) delete data.btFavorite
+      else data.btFavorite = true
+    }, path)
   }
 
   back(): void {
@@ -204,6 +261,7 @@ class BoardsStore {
     }
     if (key(this.current) === key(from)) this.current = to
     this.trail = this.trail.map((p) => (key(p) === key(from) ? to : p))
+    if (this.recent.some((p) => key(p) === key(from))) this.setRecent(this.recent.map((p) => (key(p) === key(from) ? to : p)))
     this.fileMoved(from, to)
   }
 
@@ -221,6 +279,7 @@ class BoardsStore {
     if (path === HOME_BOARD) return
     this.cancelSave(path)
     delete this.boards[key(path)]
+    this.setRecent(this.recent.filter((p) => key(p) !== key(path)))
     if (key(this.current) === key(path)) {
       this.trail = []
       this.canGoBack = false

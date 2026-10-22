@@ -973,6 +973,47 @@ button {
   background: var(--board-bg);
   border-bottom: 1px solid var(--board-edge);
 }
+/* Home › Spaces › …: the way down to this folder; the folder's own name follows as the title. */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  margin-left: 4px;
+}
+.crumb {
+  max-width: 140px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.crumb:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+.crumb-separator {
+  margin: 0 1px;
+  color: var(--text-faint);
+}
+/* The folder's name is only as wide as it is, so the star sits right after it. */
+input.board-title {
+  field-sizing: content;
+  max-width: 360px;
+}
+/* Home at the top of the sidebar, with the same room above it as the sections below. */
+.folder-home {
+  padding-top: 10px;
+}
+/* A starred folder shows a filled star. */
+.star-button.on {
+  color: #f5b301;
+}
+.star-button.on .icon path {
+  fill: currentColor;
+}
 .board-title {
   min-width: 60px;
   max-width: 320px;
