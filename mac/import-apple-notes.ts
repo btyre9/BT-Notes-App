@@ -8,14 +8,14 @@
  *   --folder    the Apple Notes folder to import from (default: Capture)
  *   --quiet     print nothing when there's nothing to import (for the scheduled run)
  *
- * The notes folder is BT_NOTES_ROOT if set, else the folder the app last opened, else iCloud
- * Drive's BT Notes folder.
+ * The notes folder is BT_NOTES_ROOT if set, else the workspace chosen for captures in the app
+ * (at first, the first workspace), else iCloud Drive's BT Notes folder.
  */
 import { closeSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { parseArgs } from 'node:util'
-import { notesRoot } from '../src/shared/notesRoot.ts'
+import { captureRoot } from '../src/shared/notesRoot.ts'
 import { appleNotes } from './appleNotes.ts'
 import { importNotes, localTimestamp } from './importer.ts'
 
@@ -75,7 +75,7 @@ if (!dryRun && !lock()) {
   process.exit(0)
 }
 
-const root = notesRoot()
+const root = captureRoot()
 const folder = values.folder!
 const results = await importNotes(root, appleNotes, { folder, keep: values.keep, dryRun })
 

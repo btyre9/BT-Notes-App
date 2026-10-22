@@ -10,7 +10,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { ARROW_ENDS, HEAD_SHAPES, LINE_PATTERNS, LINE_TYPES, LINE_WEIGHTS } from '../src/renderer/src/lib/board.ts'
+import { ARROW_ENDS, HEAD_SHAPES, LINE_PATTERNS, LINE_TYPES, LINE_WEIGHTS, SHAPES } from '../src/renderer/src/lib/board.ts'
 import { notesRoot } from '../src/shared/notesRoot.ts'
 import { addCards, BoardError, createBoard, listBoards, NotesFolder, readBoard, removeCards, updateCards } from './boards.ts'
 
@@ -45,6 +45,7 @@ const boardParam = z.string().describe('A board name, such as "Home" or "Kitchen
 const cardSpec = z.object({
   ref: z.string().optional().describe('A name for this card within this request, so arrows and "column" can point at it.'),
   kind: z.enum(['text', 'note', 'image', 'file', 'link', 'board', 'swatch', 'column']),
+  shape: z.enum(SHAPES).optional().describe('text: draw the card as a shape: circle, pill, diamond, triangle, hexagon, parallelogram, star, database (a cylinder) or document. Good for flowcharts: diamond for decisions, pill for start and end, database for data.'),
   text: z.string().optional().describe('text: the Markdown. note: the body of a new note. column: its name.'),
   title: z.string().optional().describe('note: the title of a new note (leave out "path").'),
   path: z

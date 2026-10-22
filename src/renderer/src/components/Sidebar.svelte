@@ -7,6 +7,7 @@
   import Calendar from './Calendar.svelte'
   import Icon from './Icon.svelte'
   import TagTree from './TagTree.svelte'
+  import WorkspaceSwitcher from './WorkspaceSwitcher.svelte'
 
   type View = { kind: Exclude<Filter['kind'], 'tag'>; label: string; icon: 'notes' | 'inbox' | 'calendar' | 'pin' | 'untagged' | 'todo' }
 
@@ -50,6 +51,7 @@
       <span class="label">{label}</span>
     </button>
   {/snippet}
+  <WorkspaceSwitcher />
   <div class="views folder-home">
     <button class="nav-item find-folder" title="Find a folder by name ({findShortcut})" onclick={() => (store.folderSearch = true)}>
       <Icon name="search" />

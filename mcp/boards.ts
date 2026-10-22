@@ -11,6 +11,10 @@ import {
   BOARD_EXT,
   BOARDS_DIR,
   colorOf,
+  shapeOf,
+  SHAPE_SIZES,
+  SHAPES,
+  type Shape,
   edgeStyle,
   setEdgeStyle,
   type EdgeStyle,
@@ -206,6 +210,8 @@ export interface CardSummary {
   color?: string
   note_title?: string
   swatch?: { hex: string; name: string }
+  /** For a text card drawn as a shape: its shape. */
+  shape?: string
   /** The column the card is in. */
   column?: string
   /** For a column: its cards, top to bottom. */
@@ -239,6 +245,8 @@ export async function readBoard(folder: NotesFolder, board: string) {
       const kind = kindOf(n)
       const card: CardSummary = { id: n.id, kind, x: n.x, y: n.y, width: n.width, height: n.height }
       if (kind === 'swatch') card.swatch = swatchOf(n)
+      const shape = shapeOf(n)
+      if (shape) card.shape = shape
       else if (n.text !== undefined) card.text = n.text
       if (n.file) card.file = n.file
       if (n.url) card.url = n.url
@@ -267,6 +275,8 @@ export interface NewCard {
   /** A name for this card within the request, to point arrows or column placement at it. */
   ref?: string
   kind: 'text' | 'note' | 'image' | 'file' | 'link' | 'board' | 'swatch' | 'column'
+  /** A text card drawn as a shape. */
+  shape?: Shape
   text?: string
   title?: string
   path?: string
@@ -315,7 +325,14 @@ async function makeCard(folder: NotesFolder, data: CanvasData, spec: NewCard): P
   switch (spec.kind) {
     case 'text': {
       const text = spec.text ?? ''
-      return { ...base, type: 'text', text, ...textSize(text), ...(spec.color ? { color: spec.color } : {}) }
+      const shape = spec.shape && (SHAPES as readonly string[]).includes(spec.shape) ? spec.shape : null
+      return {
+        ...base,
+        type: 'text',
+        text,
+        ...(shape ? { styleAttributes: { shape }, ...SHAPE_SIZES[shape] } : textSize(text)),
+        ...(spec.color ? { color: spec.color } : {}),
+      }
     }
     case 'note': {
       const file = spec.path ? folder.rel(folder.abs(spec.path)) : await folder.createNote(spec.title ?? 'Untitled', spec.text ?? '')

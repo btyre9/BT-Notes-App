@@ -2085,6 +2085,83 @@ input.arrow-label {
   padding: 30% 16% 0;
   text-align: center;
 }
+/* Shapes: the text sits in the middle, inside the shape. */
+.card.shape .card-md {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  text-align: center;
+}
+.card.shape .card-editor {
+  text-align: center;
+}
+.card.pill {
+  border-radius: 999px;
+}
+.card.pill .card-md {
+  padding: 8px 24px;
+}
+/* Drawn shapes: the card itself is invisible and its outline is drawn behind the text, in the
+   card's colors: plain, or filled with its color. */
+.card.drawn-shape {
+  --shape-fill: var(--card-bg);
+  --shape-line: var(--card-border);
+  overflow: visible;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.card.drawn-shape.filled {
+  --shape-fill: var(--card-color);
+  --shape-line: color-mix(in srgb, var(--card-color) 80%, #000);
+}
+.card.drawn-shape.in-column:not(.colored, .filled) {
+  --shape-fill: var(--column-card);
+  background: transparent;
+}
+.shape-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+  pointer-events: none;
+}
+.shape-outline path {
+  fill: var(--shape-fill);
+  stroke: var(--shape-line);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+.shape-outline path.shape-rim {
+  fill: none;
+}
+/* Text keeps clear of the shape's narrow parts. */
+.card.drawn-shape .card-md,
+.card.drawn-shape .card-editor {
+  position: relative;
+}
+.shape-diamond .card-md,
+.shape-star .card-md {
+  padding: 26% 24%;
+}
+.shape-triangle .card-md {
+  padding: 42% 24% 8%;
+}
+.shape-hexagon .card-md,
+.shape-parallelogram .card-md {
+  padding: 10% 22%;
+}
+.shape-database .card-md {
+  padding: 26% 10% 14%;
+}
+.shape-document .card-md {
+  padding: 8% 10% 20%;
+}
+
 /* The corner of the square around a circle is outside it, so its resize handle moves in. */
 .card.circle > .resize-handle {
   right: 14%;
@@ -2710,4 +2787,184 @@ input.arrow-label {
   margin: 16px;
   text-align: center;
   color: var(--text-muted);
+}
+
+/* The workspace switcher at the top of the sidebar. */
+.workspace {
+  position: relative;
+  padding: 0 8px 4px;
+}
+.workspace-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--sidebar-text);
+}
+.workspace-button:hover,
+.workspace-button[aria-expanded='true'] {
+  background: var(--sidebar-hover);
+}
+.workspace-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.workspace-name {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+.workspace-chevron .icon {
+  transform: rotate(90deg);
+  width: 14px;
+  height: 14px;
+  color: var(--sidebar-muted);
+}
+.workspace-menu {
+  position: fixed;
+  z-index: 30;
+  width: 290px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--list-border);
+  background: var(--editor-bg);
+  color: var(--text);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+.workspace-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 7px;
+}
+.workspace-row:hover {
+  background: var(--code-bg);
+}
+.workspace-row.unavailable .workspace-badge {
+  opacity: 0.45;
+}
+.workspace-choice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+}
+.workspace-choice:disabled {
+  cursor: default;
+}
+.workspace-choice-text {
+  display: grid;
+  min-width: 0;
+  text-align: left;
+}
+.workspace-choice-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+.workspace-note {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.workspace-check {
+  margin-left: auto;
+  color: var(--accent);
+  font-weight: 700;
+}
+.workspace-tool {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  opacity: 0;
+}
+.workspace-row:hover .workspace-tool {
+  opacity: 1;
+}
+.workspace-tool:hover {
+  background: var(--list-border);
+  color: var(--text);
+}
+.workspace-rename {
+  flex: 1;
+  min-width: 0;
+  margin: 4px 6px 4px 0;
+  padding: 4px 8px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--editor-bg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  outline: none;
+}
+.workspace-row:has(.workspace-rename) {
+  padding-left: 8px;
+  gap: 9px;
+}
+.workspace-divider {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--list-border);
+}
+.workspace-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  color: var(--text);
+}
+.workspace-action:hover {
+  background: var(--code-bg);
+}
+
+/* The Shape tool's grid of shapes. */
+.board-dock .shape-menu {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  gap: 4px;
+  min-width: 0;
+  padding: 8px;
+}
+.shape-option {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  color: var(--text-muted);
+}
+.shape-option:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.shape-option svg * {
+  fill: color-mix(in srgb, currentColor 18%, transparent);
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.shape-option svg .shape-rim {
+  fill: none;
 }

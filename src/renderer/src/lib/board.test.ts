@@ -8,6 +8,8 @@ import {
   edgeStyle,
   canvasLookOf,
   pathFromHome,
+  shapeOf,
+  isCircle,
   parentChain,
   setCanvasLook,
   setEdgeStyle,
@@ -211,6 +213,16 @@ describe('arrows', () => {
     expect(shape.startHead).toBe('')
     expect(shape.endHead.startsWith('M300,25 ')).toBe(true)
     expect(shape.mid).toEqual({ x: 200, y: 25 })
+  })
+})
+
+describe('shapes', () => {
+  it('reads the shape from styleAttributes, only on text cards', () => {
+    expect(shapeOf(node({ type: 'text', styleAttributes: { shape: 'diamond' } }))).toBe('diamond')
+    expect(shapeOf(node({ type: 'text', styleAttributes: { shape: 'blob' } }))).toBeNull()
+    expect(shapeOf(node({ type: 'file', file: 'a.png', styleAttributes: { shape: 'circle' } }))).toBeNull()
+    expect(isCircle(node({ type: 'text', styleAttributes: { shape: 'circle' } }))).toBe(true)
+    expect(isCircle(node({ type: 'text', styleAttributes: { shape: 'pill' } }))).toBe(false)
   })
 })
 

@@ -51,6 +51,26 @@ export interface PendingSave {
   content: string
 }
 
+export interface WorkspaceInfo {
+  name: string
+  path: string
+  /** Whether its folder is on this computer; a Work folder may only be on the work laptop. */
+  available: boolean
+}
+
+export interface WorkspacesApi {
+  list(): Promise<{ workspaces: WorkspaceInfo[]; active: string | null; capture: string | null }>
+  /** Opens a workspace; resolves to its folder. */
+  switchTo(path: string): Promise<string>
+  /** Asks for a folder and opens it as a new workspace; null if cancelled. */
+  add(): Promise<string | null>
+  rename(path: string, name: string): Promise<void>
+  /** Takes a workspace off the list; its folder stays. */
+  remove(path: string): Promise<void>
+  /** Sends Apple Notes captures to this workspace. */
+  setCapture(path: string): Promise<void>
+}
+
 export interface LinksApi {
   /** A web page's title, description, preview image and site name, or null if it can't be read. */
   preview(url: string): Promise<import('./linkPreview').LinkPreview | null>

@@ -35,9 +35,19 @@
     move: 'M2.5 4.5h4l1.5 1.5h5.5v7h-11zM7 10h4M9.5 8.5 11 10l-1.5 1.5',
   }
 
-  let { name }: { name: keyof typeof paths } = $props()
+  // Solid icons, filled rather than drawn with a line.
+  const solid = {
+    pencil:
+      'M3.19 12.81 L4.18 9.13 L6.87 11.82Z M4.75 8.57 L8.92 4.39 L11.61 7.08 L7.43 11.25Z M9.48 3.83 L10.62 2.7 L10.89 2.49 L11.2 2.36 L11.54 2.32 L11.87 2.36 L12.19 2.49 L12.45 2.7 L13.3 3.55 L13.51 3.81 L13.64 4.13 L13.68 4.46 L13.64 4.8 L13.51 5.11 L13.3 5.38 L12.17 6.52Z',
+  }
+
+  let { name }: { name: keyof typeof paths | keyof typeof solid } = $props()
 </script>
 
 <svg class="icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-  <path d={paths[name]} fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+  {#if name in solid}
+    <path d={solid[name as keyof typeof solid]} fill="currentColor" />
+  {:else}
+    <path d={paths[name as keyof typeof paths]} fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+  {/if}
 </svg>

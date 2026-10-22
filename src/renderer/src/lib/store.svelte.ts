@@ -1,4 +1,4 @@
-import type { MenuAction, NoteFile, PendingSave, VaultEvent } from '../../../shared/types'
+import type { MenuAction, NoteFile, PendingSave, VaultEvent, WorkspaceInfo } from '../../../shared/types'
 import {
   addTag,
   baseName,
@@ -100,6 +100,9 @@ class NotesStore {
   mode = $state<'board' | 'notes'>('board')
   /** In board mode, whether the selected note is open in a panel beside the board. */
   panelOpen = $state(false)
+  /** Notes folders to switch between, and where Apple Notes captures go. */
+  workspaces = $state<WorkspaceInfo[]>([])
+  captureWorkspace = $state<string | null>(null)
   /** Whether the Find Folder search is open. */
   folderSearch = $state(false)
   /** In board mode, whether the sidebar is hidden so the board fills the window. */
@@ -225,6 +228,7 @@ class NotesStore {
     window.addEventListener('beforeunload', () => this.saveAllNow())
     this.root = await vault.root()
     if (this.root) await this.load()
+    await this.loadWorkspaces()
     this.ready = true
   }
 
@@ -478,11 +482,60 @@ class NotesStore {
   }
 
   async chooseFolder(): Promise<void> {
-    for (const id of [...this.saveTimers.keys()]) this.flush(id)
+    this.saveAllNow()
     const root = await vault.chooseRoot()
     if (!root) return
     this.root = root
     await this.load()
+    await this.loadWorkspaces()
+  }
+
+  async loadWorkspaces(): Promise<void> {
+    const { workspaces, capture } = await window.bt.workspaces.list()
+    this.workspaces = workspaces
+    this.captureWorkspace = capture
+  }
+
+  /** Opens another workspace, saving everything waiting to be saved in this one first. */
+  async switchWorkspace(path: string): Promise<void> {
+    if (this.root && path.toLowerCase() === this.root.toLowerCase()) return
+    this.saveAllNow()
+    try {
+      this.root = await window.bt.workspaces.switchTo(path)
+      await this.load()
+    } catch (err) {
+      this.error = (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+    }
+    await this.loadWorkspaces()
+  }
+
+  async addWorkspace(): Promise<void> {
+    this.saveAllNow()
+    const root = await window.bt.workspaces.add()
+    if (root) {
+      this.root = root
+      await this.load()
+    }
+    await this.loadWorkspaces()
+  }
+
+  async renameWorkspace(path: string, name: string): Promise<void> {
+    await window.bt.workspaces.rename(path, name)
+    await this.loadWorkspaces()
+  }
+
+  async removeWorkspace(path: string): Promise<void> {
+    try {
+      await window.bt.workspaces.remove(path)
+    } catch (err) {
+      this.error = (err as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')
+    }
+    await this.loadWorkspaces()
+  }
+
+  async setCaptureWorkspace(path: string): Promise<void> {
+    await window.bt.workspaces.setCapture(path)
+    await this.loadWorkspaces()
   }
 
   private scheduleSave(id: string): void {

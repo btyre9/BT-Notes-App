@@ -139,12 +139,37 @@ export function keepsShape(node: CanvasNode): boolean {
 }
 
 /**
- * A circle: a text card marked the way Obsidian's Advanced Canvas plugin marks shapes, so it shows
- * as a circle there too (and as a plain text card without the plugin).
+ * Shapes: text cards marked the way Obsidian's Advanced Canvas plugin marks them, in
+ * `styleAttributes.shape`, so circles, pills, diamonds, parallelograms, cylinders ('database') and
+ * documents show as shapes there too, and every shape shows as a plain text card without it.
+ * Triangle, hexagon and star are the app's own.
  */
-export function isCircle(node: CanvasNode): boolean {
+export const SHAPES = ['circle', 'pill', 'diamond', 'triangle', 'hexagon', 'parallelogram', 'star', 'database', 'document'] as const
+export type Shape = (typeof SHAPES)[number]
+
+/** A new shape's size: round shapes square, wide ones wide. */
+export const SHAPE_SIZES: Record<Shape, { width: number; height: number }> = {
+  circle: { width: 160, height: 160 },
+  pill: { width: 220, height: 90 },
+  diamond: { width: 190, height: 190 },
+  triangle: { width: 190, height: 170 },
+  hexagon: { width: 200, height: 174 },
+  parallelogram: { width: 230, height: 110 },
+  star: { width: 190, height: 190 },
+  database: { width: 160, height: 190 },
+  document: { width: 200, height: 150 },
+}
+
+export function shapeOf(node: CanvasNode): Shape | null {
   const style = node.styleAttributes
-  return node.type === 'text' && typeof style === 'object' && style !== null && (style as Record<string, unknown>).shape === 'circle'
+  if (node.type !== 'text' || typeof style !== 'object' || style === null) return null
+  const shape = (style as Record<string, unknown>).shape
+  return (SHAPES as readonly unknown[]).includes(shape) ? (shape as Shape) : null
+}
+
+/** A circle keeps its roundness when resized; other shapes stretch. */
+export function isCircle(node: CanvasNode): boolean {
+  return shapeOf(node) === 'circle'
 }
 
 export function colorOf(color: string | undefined): string | null {

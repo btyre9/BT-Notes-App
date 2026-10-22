@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fetchLinkPreview } from '../shared/linkPreview'
 import { defaultRoots } from '../shared/notesRoot'
+import { defaultWorkspaceName, normalizeSettings, readSettings, settingsOf, type WorkspaceState } from '../shared/workspaces'
 import type { MenuAction, PendingSave } from '../shared/types'
 import { docInfo } from './docInfo'
 import { fileVersion, handleScheme, registerScheme, savePdfPreview } from './files'
@@ -19,16 +20,40 @@ const settingsFile = () => join(app.getPath('userData'), 'settings.json')
 let win: BrowserWindow | null = null
 let vault: Vault | null = null
 
-/** The notes folder: BT_NOTES_ROOT if set, then the saved choice, then the first default folder that exists. */
+// ---- Workspaces: notes folders to switch between, kept in the settings file ----
+
+const sameFolder = (a: string, b: string) => a.replace(/[\\/]+$/, '').toLowerCase() === b.replace(/[\\/]+$/, '').toLowerCase()
+
+function workspaceState(): WorkspaceState {
+  return normalizeSettings(readSettings(settingsFile()))
+}
+
+async function saveWorkspaces(state: WorkspaceState): Promise<void> {
+  await writeFile(settingsFile(), JSON.stringify(settingsOf(state), null, 2))
+}
+
+/** Makes a folder the open workspace, adding it to the list if it's new, and opens it. */
+async function openWorkspace(root: string): Promise<string> {
+  const state = workspaceState()
+  const known = state.workspaces.find((w) => sameFolder(w.path, root))
+  if (!known) state.workspaces.push({ name: defaultWorkspaceName(root, state.workspaces), path: root })
+  state.active = known?.path ?? root
+  state.capture ??= state.active
+  await saveWorkspaces(state)
+  openVault(state.active)
+  return state.active
+}
+
+/**
+ * The notes folder to open: BT_NOTES_ROOT if set, then the open workspace, or the first one whose
+ * folder is on this computer (a Work folder may only be on the work laptop), then the first
+ * default folder that exists.
+ */
 async function savedRoot(): Promise<string | null> {
   if (process.env.BT_NOTES_ROOT) return process.env.BT_NOTES_ROOT
-  try {
-    const { root } = JSON.parse(await readFile(settingsFile(), 'utf8'))
-    if (root) return root
-  } catch {
-    // No settings yet on first run.
-  }
-  return defaultRoots().find((root) => existsSync(root)) ?? null
+  const { workspaces, active } = workspaceState()
+  if (active && existsSync(active)) return active
+  return workspaces.find((w) => existsSync(w.path))?.path ?? active ?? defaultRoots().find((root) => existsSync(root)) ?? null
 }
 
 function openVault(root: string): void {
@@ -43,6 +68,7 @@ function requireVault(): Vault {
 }
 
 ipcMain.handle('vault:root', () => vault?.root ?? null)
+/** File → Change Notes Folder: points the open workspace at another folder, keeping its name. */
 ipcMain.handle('vault:choose', async () => {
   const result = await dialog.showOpenDialog(win!, {
     title: 'Choose your notes folder',
@@ -50,9 +76,59 @@ ipcMain.handle('vault:choose', async () => {
   })
   if (result.canceled || !result.filePaths[0]) return null
   const root = result.filePaths[0]
-  await writeFile(settingsFile(), JSON.stringify({ root }, null, 2))
-  openVault(root)
-  return root
+  const state = workspaceState()
+  const current = state.workspaces.find((w) => vault && sameFolder(w.path, vault.root))
+  if (current && !state.workspaces.some((w) => sameFolder(w.path, root))) {
+    if (state.capture && sameFolder(state.capture, current.path)) state.capture = root
+    current.path = root
+    await saveWorkspaces(state)
+  }
+  return openWorkspace(root)
+})
+
+ipcMain.handle('workspaces:list', () => {
+  const state = workspaceState()
+  return {
+    workspaces: state.workspaces.map((w) => ({ ...w, available: existsSync(w.path) })),
+    active: vault?.root ?? state.active,
+    capture: state.capture,
+  }
+})
+ipcMain.handle('workspaces:switch', async (_e, path: string) => {
+  const workspace = workspaceState().workspaces.find((w) => sameFolder(w.path, path))
+  if (!workspace) throw new Error('There’s no such workspace')
+  if (!existsSync(workspace.path)) throw new Error(`The ${workspace.name} workspace’s folder isn’t on this computer: ${workspace.path}`)
+  return openWorkspace(workspace.path)
+})
+ipcMain.handle('workspaces:add', async () => {
+  const result = await dialog.showOpenDialog(win!, {
+    title: 'Choose a notes folder for the new workspace',
+    properties: ['openDirectory', 'createDirectory'],
+  })
+  if (result.canceled || !result.filePaths[0]) return null
+  return openWorkspace(result.filePaths[0])
+})
+ipcMain.handle('workspaces:rename', async (_e, path: string, name: string) => {
+  const state = workspaceState()
+  const workspace = state.workspaces.find((w) => sameFolder(w.path, path))
+  if (!workspace || !name.trim()) return
+  workspace.name = name.trim()
+  await saveWorkspaces(state)
+})
+/** Takes a workspace off the list; its folder and files stay where they are. */
+ipcMain.handle('workspaces:remove', async (_e, path: string) => {
+  const state = workspaceState()
+  if (vault && sameFolder(vault.root, path)) throw new Error('Switch to another workspace before removing this one')
+  state.workspaces = state.workspaces.filter((w) => !sameFolder(w.path, path))
+  if (state.capture && sameFolder(state.capture, path)) state.capture = state.workspaces[0]?.path ?? null
+  await saveWorkspaces(state)
+})
+ipcMain.handle('workspaces:capture', async (_e, path: string) => {
+  const state = workspaceState()
+  const workspace = state.workspaces.find((w) => sameFolder(w.path, path))
+  if (!workspace) return
+  state.capture = workspace.path
+  await saveWorkspaces(state)
 })
 ipcMain.handle('vault:load', () => requireVault().loadAll())
 ipcMain.handle('vault:save', (_e, save: PendingSave) => requireVault().save(save))
@@ -177,7 +253,9 @@ app.whenReady().then(async () => {
   handleScheme((rel) => vault?.abs(rel) ?? null)
   Menu.setApplicationMenu(buildMenu())
   const root = await savedRoot()
-  if (root) openVault(root)
+  // A test run's folder (BT_NOTES_ROOT) isn't added to the workspaces.
+  if (root && !process.env.BT_NOTES_ROOT) await openWorkspace(root)
+  else if (root) openVault(root)
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

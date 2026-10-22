@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { boardName, colorOf, DOC_TYPES, isCircle, kindOf, swatchOf, type CanvasNode, type Side } from '../lib/board'
+  import { boardName, colorOf, DOC_TYPES, isCircle, kindOf, shapeOf, swatchOf, type CanvasNode, type Side } from '../lib/board'
+  import { SHAPE_PATHS } from '../lib/shapes'
   import { boardIconOf } from '../lib/boardIcons'
   import { drawDiagram, renderText } from '../lib/markdown'
   import { theme } from '../lib/theme.svelte'
@@ -59,6 +60,10 @@
    * Cards filled with their color, exactly as picked, with dark or light text to suit it. Images,
    * videos, PDFs and board tiles cover their card, so they show the color as a border instead.
    */
+  /** A shape card's shape, and its drawn outline (circles and pills are rounded cards instead). */
+  const shape = $derived(shapeOf(node))
+  const shapePaths = $derived(shape ? SHAPE_PATHS[shape] : undefined)
+
   const filled = $derived(!!color && ['text', 'note', 'link', 'file', 'group', 'column'].includes(kindOf(node)))
   const lightFill = $derived(filled && isLight(color!))
   const note = $derived(kind === 'note' && node.file ? store.noteByPath(node.file) : null)
@@ -314,7 +319,7 @@
 </script>
 
 <div
-  class="card card-{kind}"
+  class="card card-{kind} {shape ? `shape-${shape}` : ''}"
   class:selected
   class:drop-target={dropTarget}
   class:link-target={linkTarget}
@@ -322,6 +327,9 @@
   class:colored={color}
   class:filled
   class:circle={isCircle(node)}
+  class:pill={shape === 'pill'}
+  class:shape={!!shape}
+  class:drawn-shape={!!shapePaths}
   class:light-fill={lightFill}
   class:dark-fill={filled && !lightFill}
   class:missing={(kind === 'note' && !note) || (kind === 'board' && !linked) || broken}
@@ -338,6 +346,11 @@
   }}
   role="figure"
 >
+  {#if shapePaths}
+    <svg class="shape-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {#each shapePaths as d, i (i)}<path {d} class:shape-rim={i > 0} vector-effect="non-scaling-stroke" />{/each}
+    </svg>
+  {/if}
   {#if kind === 'image' && node.file}
     {#if broken}
       <div class="card-body card-placeholder"><Icon name="image" /> Missing image: {fileName}</div>

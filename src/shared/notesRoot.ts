@@ -1,11 +1,12 @@
 /**
  * Where the notes folder is. The app, the MCP server and the Apple Notes importer all use this:
- * BT_NOTES_ROOT if set, else the folder the app last opened, else the first default folder that
+ * BT_NOTES_ROOT if set, else the workspace open in the app, else the first default folder that
  * exists. Node only.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { normalizeSettings, readSettings } from './workspaces.ts'
 
 /**
  * Where to look for the notes folder (still called BT Notes) when none has been chosen: iCloud Drive first, where it lives
@@ -24,17 +25,6 @@ export function defaultRoots(): string[] {
     : [join(home, 'iCloudDrive', 'BT Notes'), join(home, 'Dropbox', 'BT Notes')]
 }
 
-/** The folder the app last opened, from its settings file, if it still exists. */
-function savedRoot(settingsFile: string): string | null {
-  try {
-    const { root } = JSON.parse(readFileSync(settingsFile, 'utf8'))
-    if (root && existsSync(root)) return root
-  } catch {
-    // The app hasn't saved a folder choice.
-  }
-  return null
-}
-
 /** Where Electron keeps the app's settings on each platform. */
 function settingsFile(): string {
   const appData =
@@ -47,9 +37,26 @@ function settingsFile(): string {
   return join(appData, 'BT Notes', 'settings.json')
 }
 
-/** The notes folder for tools that run outside the app. */
+/** The workspaces in the app's settings. */
+function workspaceState() {
+  return normalizeSettings(readSettings(settingsFile()))
+}
+
+/** The notes folder for tools that run outside the app: the workspace open in the app. */
 export function notesRoot(): string {
   if (process.env.BT_NOTES_ROOT) return process.env.BT_NOTES_ROOT
+  const { active } = workspaceState()
+  if (active && existsSync(active)) return active
   const defaults = defaultRoots()
-  return savedRoot(settingsFile()) ?? defaults.find((root) => existsSync(root)) ?? defaults[0]
+  return defaults.find((root) => existsSync(root)) ?? defaults[0]
+}
+
+/**
+ * Where Apple Notes captures go: the workspace chosen for them (at first, the first workspace),
+ * whichever one is open in the app, so captures from the phone never land in Work by accident.
+ */
+export function captureRoot(): string {
+  if (process.env.BT_NOTES_ROOT) return process.env.BT_NOTES_ROOT
+  const { capture } = workspaceState()
+  return capture && existsSync(capture) ? capture : notesRoot()
 }

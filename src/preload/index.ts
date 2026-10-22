@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import type { AppApi, LinksApi, VaultApi } from '../shared/types'
+import type { AppApi, LinksApi, VaultApi, WorkspacesApi } from '../shared/types'
 
 function listen<T>(channel: string, callback: (payload: T) => void): () => void {
   const handler = (_event: IpcRendererEvent, payload: T) => callback(payload)
@@ -45,4 +45,13 @@ const links: LinksApi = {
   preview: (url) => ipcRenderer.invoke('links:preview', url),
 }
 
-contextBridge.exposeInMainWorld('bt', { vault, app: appApi, links })
+const workspaces: WorkspacesApi = {
+  list: () => ipcRenderer.invoke('workspaces:list'),
+  switchTo: (path) => ipcRenderer.invoke('workspaces:switch', path),
+  add: () => ipcRenderer.invoke('workspaces:add'),
+  rename: (path, name) => ipcRenderer.invoke('workspaces:rename', path, name),
+  remove: (path) => ipcRenderer.invoke('workspaces:remove', path),
+  setCapture: (path) => ipcRenderer.invoke('workspaces:capture', path),
+}
+
+contextBridge.exposeInMainWorld('bt', { vault, app: appApi, links, workspaces })

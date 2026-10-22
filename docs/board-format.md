@@ -31,7 +31,7 @@ The easiest way for Claude to change boards is the MCP server (see the README); 
 | Group | `"type": "group"`, `"label"` |
 | Wall (column) | A group with `"btColumn": true` and `"btCards": [card ids, top to bottom]`. The app calls these walls |
 | Color swatch | A text card with `"btSwatch": true`, `"color": "#c8102e"`, and `"text": "#C8102E\nGuards Red"` (hex code, then an optional name) |
-| Circle | A text card with `"styleAttributes": { "shape": "circle" }`, the way the Advanced Canvas plugin for Obsidian marks shapes. Keep its width and height equal |
+| Shape | A text card with `"styleAttributes": { "shape": … }`, the way the Advanced Canvas plugin for Obsidian marks shapes: `circle` (keep width and height equal), `pill`, `diamond`, `parallelogram`, `database` (a cylinder) and `document` show as shapes there too; `triangle`, `hexagon` and `star` are the app's own. Without the plugin, Obsidian shows a text card |
 
 Every card has `id`, `type`, `x`, `y`, `width` and `height`, and may have `color`: `"1"` to `"6"` (red, orange, yellow, green, cyan, purple) or a hex code.
 

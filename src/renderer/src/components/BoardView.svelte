@@ -17,7 +17,10 @@
     freeSpot,
     HOME_BOARD,
     intersects,
-    isCircle,
+    shapeOf,
+    SHAPES,
+    SHAPE_SIZES,
+    type Shape,
     isColumn,
     keepsShape,
     kindOf,
@@ -50,6 +53,7 @@
   import Icon from './Icon.svelte'
   import { colorName, swatchNameAfter } from '../../../shared/colorNames'
   import CanvasPicker from './CanvasPicker.svelte'
+  import { SHAPE_LABELS, SHAPE_PATHS } from '../lib/shapes'
   import DockIcon, { type DockTool } from './DockIcon.svelte'
   import LineStylePicker from './LineStylePicker.svelte'
   import Minimap from './Minimap.svelte'
@@ -349,8 +353,9 @@
   }
 
   /** A circle to type in, color and connect, like a text card. */
-  function addCircle(at = center(), exact = false) {
-    const node = addNode({ type: 'text', text: '', styleAttributes: { shape: 'circle' }, width: 160, height: 160 }, at, exact)
+  /** A shape to type in, color and connect, like a text card. */
+  function addShape(shape: Shape, at = center(), exact = false) {
+    const node = addNode({ type: 'text', text: '', styleAttributes: { shape }, ...SHAPE_SIZES[shape] }, at, exact)
     editingId = node.id
   }
 
@@ -477,11 +482,11 @@
   }
 
   /** A tool being dragged from the dock; it becomes a drag once the pointer moves a little. */
-  let toolDrag = $state<{ tool: DockTool; startX: number; startY: number; x: number; y: number; active: boolean } | null>(null)
+  let toolDrag = $state<{ tool: DockTool; shape?: Shape; startX: number; startY: number; x: number; y: number; active: boolean } | null>(null)
 
-  function onToolDown(event: PointerEvent, tool: DockTool) {
+  function onToolDown(event: PointerEvent, tool: DockTool, shape?: Shape) {
     if (event.button !== 0) return
-    toolDrag = { tool, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, active: false }
+    toolDrag = { tool, shape, startX: event.clientX, startY: event.clientY, x: event.clientX, y: event.clientY, active: false }
   }
 
   function onToolMove(event: PointerEvent) {
@@ -501,11 +506,11 @@
     if (!drag?.active) return
     const over = document.elementFromPoint(event.clientX, event.clientY)
     if (!over?.closest('.board-viewport') || over.closest('.board-dock, .board-corner')) return
-    dropTool(drag.tool, toBoard(event.clientX, event.clientY))
+    dropTool(drag.tool, toBoard(event.clientX, event.clientY), drag.shape)
   }
 
   /** Adds what a dock tool makes, centered where it was dropped. */
-  function dropTool(tool: DockTool, at: { x: number; y: number }) {
+  function dropTool(tool: DockTool, at: { x: number; y: number }, shape: Shape = 'circle') {
     switch (tool) {
       case 'text':
         return addText(at, '', 260, true)
@@ -528,7 +533,7 @@
       case 'color':
         return addSwatch(at, true)
       case 'shape':
-        return addCircle(at, true)
+        return addShape(shape, at, true)
     }
   }
 
@@ -575,8 +580,8 @@
       })
       return
     }
-    // An empty text card is removed; an empty circle is still a shape.
-    if (!text.trim() && !isCircle(node)) {
+    // An empty text card is removed; an empty shape is still a shape.
+    if (!text.trim() && !shapeOf(node)) {
       boards.update((data) => removeNodes(data, new Set([node.id])))
       boards.selection = boards.selection.filter((id) => id !== node.id)
       return
@@ -590,8 +595,8 @@
   function fitText(node: CanvasNode, needed: number) {
     if (autosizeId !== node.id) return
     autosizeId = null
-    // A circle stays round; it's resized by hand.
-    if (isCircle(node)) return
+    // A shape keeps its size; it's resized by hand.
+    if (shapeOf(node)) return
     if (needed > node.height) {
       boards.mutate((data) => {
         node.height = Math.ceil(needed)
@@ -1364,14 +1369,27 @@
         <DockIcon tool="shape" />
       </button>
       {#if picker === 'shape'}
-        <div class="menu chart-menu" role="menu">
-          <button
-            role="menuitem"
-            onclick={() => {
-              picker = null
-              addCircle()
-            }}>Circle</button
-          >
+        <!-- Click a shape to add it, or drag it to where it should go. -->
+        <div class="menu shape-menu" role="menu">
+          {#each SHAPES as shape (shape)}
+            <button
+              class="shape-option"
+              role="menuitem"
+              title="{SHAPE_LABELS[shape]}: click, or drag onto the board"
+              aria-label={SHAPE_LABELS[shape]}
+              onpointerdown={(e) => onToolDown(e, 'shape', shape)}
+              onclick={() => {
+                picker = null
+                addShape(shape)
+              }}
+            >
+              <svg viewBox="0 0 100 100" width="34" height="34" aria-hidden="true">
+                {#if shape === 'circle'}<circle cx="50" cy="50" r="46" />
+                {:else if shape === 'pill'}<rect x="3" y="27" width="94" height="46" rx="23" />
+                {:else}{#each SHAPE_PATHS[shape] ?? [] as d, i (i)}<path {d} class:shape-rim={i > 0} />{/each}{/if}
+              </svg>
+            </button>
+          {/each}
         </div>
       {/if}
     </div>
