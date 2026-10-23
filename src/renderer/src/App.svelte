@@ -24,7 +24,7 @@
 {#if store.ready && !store.root}
   <div class="welcome">
     <h1>Vizual Notes</h1>
-    <p>Choose the folder where your notes live, for example <code>BT Notes</code> in iCloud Drive.</p>
+    <p>Choose the folder where your notes live, for example <code>BT Notes</code> in Google Drive.</p>
     <button class="primary" onclick={() => store.chooseFolder()}>Choose folder…</button>
   </div>
 {:else if store.ready}

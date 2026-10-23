@@ -9,7 +9,7 @@
  *   --quiet     print nothing when there's nothing to import (for the scheduled run)
  *
  * The notes folder is BT_NOTES_ROOT if set, else the workspace chosen for captures in the app
- * (at first, the first workspace), else iCloud Drive's BT Notes folder.
+ * (at first, the first workspace), else the BT Notes folder in Google Drive or iCloud Drive.
  */
 import { closeSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
 import { tmpdir } from 'node:os'

@@ -3,26 +3,47 @@
  * BT_NOTES_ROOT if set, else the workspace open in the app, else the first default folder that
  * exists. Node only.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { normalizeSettings, readSettings } from './workspaces.ts'
 
 /**
- * Where to look for the notes folder (still called BT Notes) when none has been chosen: iCloud Drive first, where it lives
- * now, then Dropbox, where it lived before. On a Mac, iCloud Drive is ~/Library/Mobile
- * Documents/com~apple~CloudDocs and current Dropbox versions use ~/Library/CloudStorage; on
- * Windows, iCloud for Windows uses ~/iCloudDrive.
+ * Where to look for the notes folder (still called BT Notes) when none has been chosen: Google
+ * Drive first, where it's moving (PLAN.md phase 13), then iCloud Drive, where it lives until the
+ * move, then Dropbox, where it lived before.
+ * - Google Drive for desktop on a Mac keeps each account in ~/Library/CloudStorage/GoogleDrive-<email>;
+ *   on Windows it's the G: drive when streaming, or ~/My Drive when mirroring.
+ * - iCloud Drive is ~/Library/Mobile Documents/com~apple~CloudDocs on a Mac and ~/iCloudDrive
+ *   with iCloud for Windows. Current Dropbox versions on a Mac use ~/Library/CloudStorage.
  */
-export function defaultRoots(): string[] {
-  const home = homedir()
-  return process.platform === 'darwin'
-    ? [
-        join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'BT Notes'),
-        join(home, 'Library', 'CloudStorage', 'Dropbox', 'BT Notes'),
-        join(home, 'Dropbox', 'BT Notes'),
-      ]
-    : [join(home, 'iCloudDrive', 'BT Notes'), join(home, 'Dropbox', 'BT Notes')]
+export function defaultRoots(platform: NodeJS.Platform = process.platform, home = homedir()): string[] {
+  if (platform === 'darwin') {
+    const cloudStorage = join(home, 'Library', 'CloudStorage')
+    return [
+      ...googleDriveAccounts(cloudStorage).map((account) => join(cloudStorage, account, 'My Drive', 'BT Notes')),
+      join(home, 'Library', 'Mobile Documents', 'com~apple~CloudDocs', 'BT Notes'),
+      join(cloudStorage, 'Dropbox', 'BT Notes'),
+      join(home, 'Dropbox', 'BT Notes'),
+    ]
+  }
+  return [
+    ...(platform === 'win32' ? ['G:\\My Drive\\BT Notes'] : []),
+    join(home, 'My Drive', 'BT Notes'),
+    join(home, 'iCloudDrive', 'BT Notes'),
+    join(home, 'Dropbox', 'BT Notes'),
+  ]
+}
+
+/** The Google Drive accounts signed in to Google Drive for desktop on a Mac. */
+function googleDriveAccounts(cloudStorage: string): string[] {
+  try {
+    return readdirSync(cloudStorage)
+      .filter((name) => name.startsWith('GoogleDrive-'))
+      .sort()
+  } catch {
+    return []
+  }
 }
 
 /** Where Electron keeps the app's settings on each platform. */

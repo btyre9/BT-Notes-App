@@ -2,7 +2,7 @@
 
 *Formerly BT Notes. The notes folder, the app's settings folder, the Apple Notes import and this project's folder keep the old name.*
 
-Boards of notes, images and text, on top of Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files and boards are `.canvas` files (Obsidian's JSON Canvas format) in a `BT Notes` folder in iCloud Drive. See [PLAN.md](PLAN.md) for the design and roadmap.
+Boards of notes, images and text, on top of Markdown notes with Bear's look and a few of Craft's features. Notes are plain `.md` files and boards are `.canvas` files (Obsidian's JSON Canvas format) in a `BT Notes` folder in Google Drive (moving there from iCloud Drive; see [Moving the notes folder](#moving-the-notes-folder)). See [PLAN.md](PLAN.md) for the design and roadmap.
 
 ## Install on Windows
 
@@ -25,7 +25,7 @@ Run `dist\Vizual Notes Setup 0.1.0.exe`. On a work laptop, use **File → Change
 Mac apps have to be built on a Mac, so the steps run there.
 
 1. Install Node.js 22 or newer: the macOS installer from [nodejs.org](https://nodejs.org).
-2. Get the code into a folder in your home folder, not in iCloud Drive or another synced folder, since the next step downloads a few hundred MB that shouldn't sync:
+2. Get the code into a folder in your home folder, not in Google Drive, iCloud Drive or another synced folder, since the next step downloads a few hundred MB that shouldn't sync:
 
    ```bash
    git clone https://github.com/btyre9/BT-Notes-App.git ~/BT-Notes-App
@@ -38,7 +38,7 @@ Mac apps have to be built on a Mac, so the steps run there.
    npm run dev
    ```
 
-   The app opens `BT Notes` in iCloud Drive. That's enough to use it; it runs until you close Terminal.
+   The app opens `BT Notes` in Google Drive, or in iCloud Drive until it has moved. That's enough to use it; it runs until you close Terminal.
    - **If it says "Electron uninstall":** run `node node_modules/electron/install.js` (npm sometimes skips Electron's download), then `npm run dev` again.
 4. To install it as a normal app, run `npm run dist:mac`, open the `.dmg` it makes in `dist/`, and drag **Vizual Notes** to Applications.
    - **The app isn't signed by an Apple developer account**, so the first time, right-click it in Applications and choose **Open**, then **Open** again.
@@ -59,8 +59,9 @@ npm run dev
 
 On first launch the app opens the first of these that exists, else it asks you to pick a folder:
 
-1. `BT Notes` in iCloud Drive (on a Mac, `~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`; on Windows with iCloud for Windows, `~\iCloudDrive\BT Notes`)
-2. `BT Notes` in Dropbox, where it used to live
+1. `BT Notes` in Google Drive's **My Drive**, with Google Drive for desktop (on a Mac, `~/Library/CloudStorage/GoogleDrive-<account>/My Drive/BT Notes`; on Windows, `G:\My Drive\BT Notes`, or `~\My Drive\BT Notes` if Google Drive mirrors files)
+2. `BT Notes` in iCloud Drive, where it lives until the move (on a Mac, `~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`; on Windows with iCloud for Windows, `~\iCloudDrive\BT Notes`)
+3. `BT Notes` in Dropbox, where it used to live
 
 Change it with **File → Change Notes Folder…**; the app, Claude's MCP server and the Apple Notes import all use the folder you pick. A work laptop can use a separate work folder this way, such as `OneDrive - Company\BT Notes`, so work notes stay on work storage.
 
@@ -69,6 +70,20 @@ To try the app on a different folder without changing your saved choice, set `BT
 ```bash
 BT_NOTES_ROOT="D:\test-notes" npm run dev
 ```
+
+### Moving the notes folder
+
+To move the notes to Google Drive (or any other folder), close the app and run, from this project:
+
+```bash
+npm run copy-notes -- "$HOME/Library/CloudStorage/GoogleDrive-<account>/My Drive/BT Notes"
+```
+
+It copies the open workspace's folder there (`--from Folder` copies another one), checks every file byte for byte, and keeps modification times. It never overwrites a file that's already there and never deletes anything, so it's safe to run again; `--dry-run` shows what it would copy. Then open the app and choose the new folder with **File → Change Notes Folder…**, which keeps the workspace's name.
+
+- **Online-only files:** right-click the new `BT Notes` in Finder or File Explorer and choose **Offline access → Available offline**, so notes open at once and changes from other devices are noticed.
+- **iCloud files not on this Mac:** if it lists files that are only in iCloud, right-click `BT Notes` in iCloud Drive, choose **Keep Downloaded**, wait for them to download, and run it again.
+- **macOS permission:** the first time the app, or the scheduled Apple Notes import, opens a folder in Google Drive, macOS may ask whether it can use those files. Choose **Allow**.
 
 ## Using it
 
@@ -204,7 +219,8 @@ npm run build     # production build into out/
 
 - `src/main/`: Electron main process. It reads, writes and watches the notes folder.
 - `src/preload/`: the bridge between the window and the main process.
-- `src/shared/types.ts`: the storage interface the UI uses. The iPhone app will implement the same interface on top of Google Drive.
+- `src/shared/types.ts`: the storage interface the UI uses. The web version will implement the same interface on top of the Google Drive API.
 - `src/renderer/`: the Svelte UI, the CodeMirror editor and search.
 - `mac/`: the Apple Notes importer. Like `mcp/`, Node runs it straight from TypeScript.
+- `tools/`: `copy-notes`, for moving the notes folder. Node runs it straight from TypeScript too.
 - `mcp/`: the MCP server for Claude. Node runs it straight from TypeScript, so it uses only syntax Node can strip: no enums or constructor parameter properties.

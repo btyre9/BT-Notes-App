@@ -2,23 +2,24 @@
 
 *Formerly BT Notes (renamed 2026-10-22); folder and file names below keep the old name.*
 
-A visual notes app that works like Storyflow. It opens to boards of notes, images, files, tables, charts and diagrams, linked by arrows and sorted into columns. Under the boards is a Markdown notes app with Bear's look and a few of Craft's features. Claude can build and read boards. It runs on Windows and Mac, keeps its notes in personal OneDrive, and uses an Apple Shortcut on the iPhone for quick capture. A web version will open the same notes in any browser, including on the phone.
+A visual notes app that works like Storyflow. It opens to boards of notes, images, files, tables, charts and diagrams, linked by arrows and sorted into columns. Under the boards is a Markdown notes app with Bear's look and a few of Craft's features. Claude can build and read boards. It runs on Windows and Mac, keeps its notes in Google Drive, and uses an Apple Shortcut on the iPhone for quick capture. A web version will open the same notes in any browser, on Linux and on the phone too.
 
 ## Decisions
 
 | Area | Decision | Why |
 |---|---|---|
-| Storage | Plain files in `OneDrive/BT Notes/` on a personal OneDrive: notes as `.md`, boards as `.canvas`, images, videos and documents as themselves | Readable by any app, no lock-in. Decided 2026-10-21, moving from `iCloud Drive/BT Notes/` (phase 13); until the move, iCloud Drive is the home. |
-| Sync (Mac, Windows) | The OneDrive app syncs the folder; the app only reads and writes local files. On the work laptop the personal account runs next to the work one. | The same notes on the Mac, the laptop and the iPhone. OneDrive is built into Windows and fast there; iCloud for Windows wasn't (its sign-in silently expired Oct 15–21). Its policy settings on the laptop don't block a personal account (checked 2026-10-21). |
-| Sync (iPhone) | The OneDrive app, which also shows the folder in the Files app | Lets a Shortcut save captures straight into the folder (phase 14), and the Files app open notes, images and PDFs |
-| Cost | Microsoft 365 Basic, about $1.99 a month for 100 GB; Microsoft 365 Personal, about $9.99 a month, if it outgrows that (1 TB and Office) | Cheapest of the options. Dropbox was considered: about $12 a month with no plan between 2 GB and 2 TB, and its file transfers were blocked on the corporate network (phase 0). Supabase and Backblaze B2 were considered for the web version: about the same cost, but BT Notes would have had to do its own syncing. |
+| Storage | Plain files in `My Drive/BT Notes/` on the personal Google Drive: notes as `.md`, boards as `.canvas`, images, videos and documents as themselves | Readable by any app, no lock-in. Decided 2026-10-23, replacing the plan of 2026-10-21 to use personal OneDrive: Google Drive was the best deal, and works on Windows and Mac, and on Linux and anything else through the web. Moving from `iCloud Drive/BT Notes/` (phase 13); until the move, iCloud Drive is the home. |
+| Sync (Mac, Windows) | Google Drive for desktop syncs the folder; the app only reads and writes local files. On a Mac the folder is in `~/Library/CloudStorage/GoogleDrive-<account>/My Drive`; on Windows, on the `G:` drive. | The same notes on the Mac, the laptop and the iPhone. Google Drive for desktop worked through the corporate proxy in the first sync test (phase 0); iCloud for Windows was slow and its sign-in silently expired Oct 15–21. |
+| Sync (Linux) | None: Google has no Drive app for Linux, so Linux uses the web version (phases 15–16) | No desktop build for Linux to maintain |
+| Sync (iPhone) | The Google Drive app, which also shows the folder in the Files app | Lets a Shortcut save captures straight into the folder (phase 14), and the Files app open notes, images and PDFs |
+| Cost | Free up to 15 GB (shared with Gmail and Google Photos); Google One, about $1.99 a month for 100 GB, when it outgrows that; about $9.99 a month for 2 TB | Cheapest of the options. OneDrive was planned at the same price for 100 GB (Microsoft 365 Basic). Dropbox was considered: about $12 a month with no plan between 2 GB and 2 TB, and its file transfers were blocked on the corporate network (phase 0). Supabase and Backblaze B2 were considered for the web version: about the same cost, but BT Notes would have had to do its own syncing. |
 | Work notes | A separate work folder, `OneDrive - Porsche Cars North America\BT Notes`, on the work laptop, chosen with **File → Change Notes Folder…** (set up 2026-10-21) | Work material belongs on work storage. The laptop can switch between it and the personal folder the same way; a Personal/Work switcher can come later. |
 | Capture (iPhone) | An Apple Shortcut saves a note, with photos, straight into `Inbox/` (phase 14) | Works without the Mac. The Apple Notes import stays until the Shortcut has proven itself. |
-| Web version (planned, phases 15–16) | The same Svelte app, hosted on Vercel, reading and writing the same OneDrive folder through Microsoft's API (Microsoft Graph), signed in with the personal Microsoft account. On the iPhone it's added to the Home Screen, with no App Store. | Notes from anywhere, including the phone, with no storage of its own and no syncing to build: OneDrive keeps the computers in step. Vercel's Hobby plan is free. |
+| Web version (planned, phases 15–16) | The same Svelte app, hosted on Vercel, reading and writing the same Google Drive folder through the Google Drive API, signed in with the personal Google account. On the iPhone it's added to the Home Screen, with no App Store. | Notes from anywhere, including Linux and the phone, with no storage of its own and no syncing to build: Google Drive keeps the computers in step. Vercel's Hobby plan is free. |
 | Layout | Boards first. The app opens to a **Home** board; boards hold notes, images, files and other boards | Visual learner. Works like Storyflow and Milanote. |
 | Board format | JSON Canvas (`.canvas`), the open format Obsidian created, plus a column marker on groups | Obsidian can open the same boards, and Claude can write them directly |
 | Tables, charts, diagrams | Markdown tables and Mermaid code inside text cards | Plain text that Claude writes well and Obsidian also draws |
-| Claude access | Claude Code edits the files directly. A local MCP server gives the Claude desktop app the same access. | No hosted server, so boards stay on your devices and in your OneDrive |
+| Claude access | Claude Code edits the files directly. A local MCP server gives the Claude desktop app the same access. | No hosted server, so boards stay on your devices and in your Google Drive |
 | Desktop shell | Electron | Tauri needs Rust plus the C++ build tools, which aren't installed here and need admin rights |
 | iPhone shell | Capacitor | Runs the same web UI as the desktop app |
 | UI | Svelte + TypeScript + Vite | Small, fast bundles; one codebase for both shells |
@@ -30,7 +31,7 @@ A visual notes app that works like Storyflow. It opens to boards of notes, image
 ## Folder layout
 
 ```
-OneDrive/BT Notes/
+My Drive/BT Notes/
   Boards/           one .canvas file per board
     Home.canvas     the board the app opens to
   Notes/            all notes, subpages included
@@ -144,7 +145,7 @@ Each phase ends with a check that has to pass before the next one starts.
    - *Check:* edit on Windows and the change appears on the Mac. ⏳ Needs the Mac.
    - *Check:* search across 5,000 generated notes takes under 50 ms. ✅ Unit test.
 2. **Craft features.** Built and tested on Windows, 2026-10-19: daily notes with a calendar, `[[links]]` with backlinks and autocomplete, subpage cards, callouts, toggles, tasks with due dates and a Tasks view.
-3. **Move to iCloud Drive.** Superseded 2026-10-21 by the move to personal OneDrive (phase 13).
+3. **Move to iCloud Drive.** Superseded 2026-10-21 by a move to personal OneDrive, itself replaced 2026-10-23 by the move to Google Drive (phase 13).
    - 2026-10-20: moved to Dropbox first (notes copied from `G:\My Drive\BT Notes`), then to iCloud Drive the same day, since Dropbox's free 2 GB is too small and iCloud+ is already paid for.
    - The app, the MCP server and the Apple Notes import open `iCloud Drive/BT Notes` by default (`src/shared/notesRoot.ts`), falling back to the old Dropbox folder. ✅
    - The four notes copied from Dropbox to iCloud Drive. ✅ The Dropbox copy is left in place.
@@ -189,31 +190,33 @@ Each phase ends with a check that has to pass before the next one starts.
 11. **iPhone app (Capacitor).**
     - Reading first, then editing.
     - Needs the Apple Developer Program ($99 a year) to install through TestFlight.
-    - Until it's ready, the Files app can open the `.md` files, images, videos and PDFs in OneDrive.
+    - Until it's ready, the Files app can open the `.md` files, images, videos and PDFs in Google Drive.
     - The web version (phases 15–16) may make this unnecessary: decide after it's in use.
 12. **Polish:** a screen for merging conflicting copies, export to PDF and HTML, themes.
-13. **Move to personal OneDrive.**
-    - Before paying: on the corporate network, sign in to OneDrive on the work laptop with a free personal Microsoft account (5 GB) and check that a test file syncs. Some companies block personal accounts on their network.
-    - Subscribe to Microsoft 365 Basic (100 GB), and sign in to OneDrive with the personal account on the Mac, the work laptop and the iPhone.
-    - On the Mac, copy `iCloud Drive/BT Notes` into `OneDrive/BT Notes`, and set it to **Always keep on this device**, so the app never waits on online-only files.
-    - The app, the MCP server and the Apple Notes import look for the personal OneDrive folder first (`src/shared/notesRoot.ts`), then fall back to iCloud Drive.
-    - Point the app at the new folder on each computer with **File → Change Notes Folder…**. On the work laptop, the work folder stays available the same way.
+13. **Move to Google Drive.** Decided 2026-10-23, replacing the OneDrive plan.
+    - On the work laptop, sign in to Google Drive for desktop with the personal Google account and check that a test file syncs on the corporate network. Google Drive for desktop got through the proxy in phase 0, so this should pass. Google's free 15 GB is enough to start, so nothing needs paying for first.
+    - Install Google Drive for desktop on the Mac and the Google Drive app on the iPhone, signed in to the same account.
+    - On the Mac, with the app closed, copy the notes: `npm run copy-notes -- "$HOME/Library/CloudStorage/GoogleDrive-<account>/My Drive/BT Notes"`. It copies the open workspace's folder (iCloud Drive's `BT Notes`), checks every file byte for byte, keeps modification times, and never overwrites a file that's already there.
+    - In Finder, right-click the new `BT Notes` and choose **Offline access → Available offline** (on Windows, the same in File Explorer), so the app never waits on online-only files. macOS may ask whether Vizual Notes can use files in Google Drive: **Allow**.
+    - The app, the MCP server and the Apple Notes import look for a Google Drive `BT Notes` first (`src/shared/notesRoot.ts`), then fall back to iCloud Drive. ✅ 2026-10-23
+    - Point the app at the new folder on each computer with **File → Change Notes Folder…**, which keeps the workspace's name. The Apple Notes import follows the folder chosen for captures. On the work laptop, the Work workspace stays on the company OneDrive.
     - The iCloud copy stays as a backup for a month, then can be deleted.
-    - *Check:* the same number of notes, boards and attachments in OneDrive as in iCloud, and 10 files spot-checked byte for byte.
+    - *Check:* `npm run copy-notes` ends with "Every file is in the new folder, byte for byte".
     - *Check:* a note edited on the Mac appears on the work laptop within a minute, on the guest network and on the corporate network.
+    - *Check:* the scheduled Apple Notes import still runs after the switch: a note captured in **Capture** reaches `Inbox/` in Google Drive (macOS may ask whether node can use files in Google Drive).
 14. **iPhone capture.**
-    - An Apple Shortcut, **Capture**: asks for text (typed or dictated) and optional photos, then saves a note in the app's format (front matter, a `# title`, the text, and `![](../Attachments/…)` links) to `OneDrive/BT Notes/Inbox/`, with the photos in `Attachments/`.
+    - An Apple Shortcut, **Capture**: asks for text (typed or dictated) and optional photos, then saves a note in the app's format (front matter, a `# title`, the text, and `![](../Attachments/…)` links) to `BT Notes/Inbox/` in Google Drive, through the Files app, with the photos in `Attachments/`.
     - Started from the Home Screen, the Lock Screen, the Action Button or Siri, and from the share sheet in any app, for photos, links and selected text.
     - Step-by-step instructions for building it go in `docs/iphone-capture.md`, since a Shortcut can't be installed from a file.
     - *Check:* a capture with two photos, taken on the iPhone with the Mac off, is in the Inbox on the work laptop within a minute, with its photos.
     - *Check:* after a week of using the Shortcut, the Apple Notes import (phases 9–10) is turned off, or kept if it's still useful.
 15. **Web app.**
-    - Registered with Microsoft as an app for personal accounts, so it can ask for access to OneDrive. Sign-in is through Microsoft, and the app only gets the access the user grants.
-    - The app's storage interface (`src/shared/types.ts`) gets a second version on Microsoft Graph, so the same screens run in a browser on the same `BT Notes` folder.
-    - Boards, notes, images, PDFs (with pdf.js) and videos. Previews come from OneDrive, which makes thumbnails of images, videos and documents.
-    - Changes from other devices come in through Graph's change tracking (delta queries).
+    - Set up as an app in a Google Cloud project, so it can ask for access to Google Drive. Sign-in is through Google, and the app only gets the access the user grants. Kept in testing mode with the user as its only tester, so Google doesn't have to review it.
+    - The app's storage interface (`src/shared/types.ts`) gets a second version on the Google Drive API, so the same screens run in a browser on the same `BT Notes` folder.
+    - Boards, notes, images, PDFs (with pdf.js) and videos. Previews come from Google Drive, which makes thumbnails of images, videos and documents.
+    - Changes from other devices come in through the Drive API's change list.
     - Hosted on Vercel (Hobby plan).
-    - *Check:* on a computer that has never had Vizual Notes, sign in at the web address, edit a board, and the change shows up in the Mac app within a minute.
+    - *Check:* on a computer that has never had Vizual Notes, a Linux one if there's one to hand, sign in at the web address, edit a board, and the change shows up in the Mac app within a minute.
 16. **Phone.**
     - Layouts for a small screen; pinch to zoom, drag with a finger, and a long press for what right-click does.
     - Add a photo from the camera or photo library straight onto a board.
@@ -222,9 +225,9 @@ Each phase ends with a check that has to pass before the next one starts.
 
 ## Risks to check early
 
-- **Personal OneDrive on the work laptop.** The laptop's OneDrive policy settings don't block a personal account (no `DisablePersonalSync` or tenant list, checked 2026-10-21), but the corporate network might block personal Microsoft sign-ins, IT could add a block later, and company rules may not allow it. Phase 13 tests the network before paying. Work notes stay in the work folder either way.
-- **Online-only files.** OneDrive's Files On-Demand (and iCloud Drive's "Optimize Mac Storage") can keep files in the cloud until they're opened, which makes them slow to open the first time and may hide changes from the app.
-  - Fix: right-click `BT Notes` and choose **Always keep on this device** (iCloud: **Keep Downloaded**), and fall back to checking for changes on a timer.
+- **Personal Google Drive on the work laptop.** Google Drive for desktop got through the corporate proxy in phase 0, but IT could block it later, and company rules may not allow a personal account. Phase 13 tests it again before relying on it. Work notes stay in the work folder on the company OneDrive either way.
+- **Online-only files.** Google Drive for desktop streams files by default, and iCloud Drive's "Optimize Mac Storage" does the same: files stay in the cloud until they're opened, which makes them slow to open the first time and may hide changes from the app.
+  - Fix: right-click `BT Notes` and choose **Offline access → Available offline** (iCloud: **Keep Downloaded**), and fall back to checking for changes on a timer (the app rescans every 60 seconds).
 - **Conflicting edits.** When the same file is edited on two devices before they sync, the sync service keeps both versions as separate files. The app should detect these copies and offer to merge them.
 - **Columns aren't part of JSON Canvas.** Obsidian shows a column as a plain group, and may drop the `btColumn` marker if the board is edited there.
 - **Large images on boards.** Full-size phone photos can make a big board slow. Previews (see Board format) are the fix.
@@ -232,8 +235,9 @@ Each phase ends with a check that has to pass before the next one starts.
 - **PDF previews on Windows.** Windows can't make PDF thumbnails, so the app draws the first page with pdf.js the first time it shows a PDF on a device, and keeps it with the other previews.
 - **Mermaid charts.** Pie, bar and line charts only; nothing dashboard-style.
 - **Apple Notes images.** Apple's scripting for Notes gets text out reliably, but images and attachments may not come through.
-- **OneDrive on the iPhone.** The Shortcut and any iPhone app reach `BT Notes` through the OneDrive app's place in the Files app; the user picks the folder once.
-- **Company policy.** Work material stays in the work folder on company storage, not in the personal OneDrive.
-- **The web address is public.** Anyone can reach it, but only someone signed in to the personal Microsoft account can open the notes, and the app's access is limited to what that account grants. Check that before relying on it.
-- **Prices change.** The Microsoft 365 and Vercel figures are from October 2026 comparisons, and one source mentions a Microsoft 365 price change; check the pricing pages before relying on them.
+- **Google Drive on the iPhone.** The Shortcut and any iPhone app reach `BT Notes` through the Google Drive app's place in the Files app; the user picks the folder once. Files saved there may wait to upload until the Google Drive app runs; phase 14's check covers that.
+- **Company policy.** Work material stays in the work folder on company storage, not in the personal Google Drive.
+- **The web address is public.** Anyone can reach it, but only someone signed in to the personal Google account can open the notes, and the app's access is limited to what that account grants. Check that before relying on it.
+- **Google's access rules for the web app.** Reading and writing a whole existing folder needs Google's broadest Drive permission, which Google reviews before an app can go public. Kept in testing mode with one tester, no review is needed, but Google may ask the user to sign in again every week. The alternative, a narrower permission where the user picks the `BT Notes` folder once in Google's file picker, needs testing to see whether it reaches files the desktop apps made. Check both early in phase 15.
+- **Prices change.** The Google One and Vercel figures are from October 2026 comparisons; check the pricing pages before relying on them.
 - **The iPhone can clear a website's stored data.** Safari may remove saved data from websites that aren't added to the Home Screen, so offline reading depends on using the Home Screen icon.

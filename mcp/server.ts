@@ -4,8 +4,8 @@
  *
  *   node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mcp/server.ts
  *
- * The notes folder is BT_NOTES_ROOT if set, else the folder the app last opened, else
- * iCloud Drive's BT Notes folder (see src/shared/notesRoot.ts).
+ * The notes folder is BT_NOTES_ROOT if set, else the folder the app last opened, else the
+ * BT Notes folder in Google Drive or iCloud Drive (see src/shared/notesRoot.ts).
  */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'

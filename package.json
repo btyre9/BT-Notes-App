@@ -17,7 +17,8 @@
     "import-notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/import-apple-notes.ts",
     "import-notes:install": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts install",
     "import-notes:uninstall": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts uninstall",
-    "import-notes:status": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts status"
+    "import-notes:status": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON mac/schedule.ts status",
+    "copy-notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tools/copy-notes.ts"
   },
   "devDependencies": {
     "@codemirror/autocomplete": "^6.20.4",

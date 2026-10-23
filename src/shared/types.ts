@@ -14,7 +14,7 @@ export type VaultEvent =
 
 /**
  * Everything the UI needs from storage. The desktop app implements it with local files;
- * the iPhone app will implement the same interface on top of the Dropbox API.
+ * the web version will implement the same interface on top of the Google Drive API.
  */
 export interface VaultApi {
   root(): Promise<string | null>

@@ -30,12 +30,12 @@ Vizual Notes (renamed from BT Notes on 2026-10-22) is the user's own Milanote/St
   - the dock: drawn icons (`DockIcon.svelte`), hover tooltips, and drag-and-drop of tools onto the board or a wall
   - link cards with previews (`src/shared/linkPreview.ts`), stored as `btTitle`, `btDescription`, `btImage`, `btSite`; images are cached per device under `Web images` in the app's settings folder and served through `btfile://web/`. GitHub's preview images rate-limit after many requests.
   - automatic swatch names from the nearest named color (`src/shared/colorNames.ts`, data in `colorNameData.ts`, MIT, credited in `docs/third-party-licenses.md`)
-- **Notes folder:** moving to **personal OneDrive** (`OneDrive/BT Notes`), decided by the user on 2026-10-21 after comparing iCloud, Dropbox, Supabase + Backblaze B2 and OneDrive: it gives the same notes on the Mac, the work laptop and the iPhone, phone capture without the Mac, and a web version on Microsoft Graph with no syncing to build, for about $1.99 a month (100 GB). PLAN.md phase 13 is the move; until it's done, the notes are still in `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). Don't reopen the storage question unless the user does. The Windows work laptop uses a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, saved as its folder choice (2026-10-21). The user chose it for speed after trying iCloud for Windows the same day, whose sign-in had silently expired for six days. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
+- **Notes folder:** moving to **Google Drive** (`My Drive/BT Notes` on the user's personal Google account), decided by the user on 2026-10-23 as the best deal that works on Windows and Mac, and on Linux and anywhere else through the planned web version. It replaces the personal OneDrive plan of 2026-10-21 (which had replaced iCloud, Dropbox and Supabase + Backblaze B2). PLAN.md phase 13 is the move; `npm run copy-notes` (`tools/`) copies and checks the folder, and `src/shared/notesRoot.ts` looks for a Google Drive `BT Notes` first. Until the move is done, the notes are still in `iCloud Drive/BT Notes` (`~/Library/Mobile Documents/com~apple~CloudDocs/BT Notes`). Don't reopen the storage question unless the user does. The Windows work laptop keeps a separate work folder, `C:\Users\ALIBI8I\OneDrive - Porsche Cars North America\BT Notes`, as its Work workspace (2026-10-21), since work material stays on company storage. The old Dropbox copy and `~/BT-Notes-Test` are leftovers.
 - **Apple Notes import:** a launchd job (`com.btyre.btnotes.import`) runs `mac/import-apple-notes.ts` every 5 minutes from `~/BT-Notes-App`, moving notes from the Notes folder **Capture** into `Inbox/`. Log: `~/Library/Logs/BT Notes/import.log`. It finds the notes folder through `src/shared/notesRoot.ts`, so it follows the app's folder.
 
 ## Waiting on the user
 
-- Phase 13's first step: on the corporate network, sign in to OneDrive on the work laptop with a free personal Microsoft account and check that a test file syncs, before subscribing to Microsoft 365 Basic.
+- Phase 13, the move to Google Drive: sign in to Google Drive for desktop with the personal Google account on the work laptop (check a test file syncs on the corporate network) and on the Mac, then run `npm run copy-notes` on the Mac and switch each computer's folder with **File → Change Notes Folder…**.
 - The phone test (PLAN phase 10 check), if the Apple Notes import is still wanted: capture notes with photos in **Capture** on the iPhone and confirm they reach the Inbox within about 5 minutes. The planned replacement is the iPhone Shortcut (phase 14).
 
 ## Next work the user is weighing
@@ -46,7 +46,7 @@ The user wants boards to feel interactive like Milanote, not like a FigJam pictu
 
 Comments and sharing were noted as gaps but are lower priority. Link previews are done (2026-10-22).
 
-**Planned 2026-10-21, not started (PLAN.md phases 13–16):** move to personal OneDrive (13), an iPhone Capture Shortcut that saves into `Inbox/` (14), and a web version on Vercel that reads and writes the OneDrive folder through Microsoft Graph (15), with a phone layout (16).
+**Planned, not started (PLAN.md phases 13–16):** move to Google Drive (13; the folder-finding and copy script are done, 2026-10-23), an iPhone Capture Shortcut that saves into `Inbox/` (14), and a web version on Vercel that reads and writes the Google Drive folder through the Google Drive API (15), with a phone layout (16).
 
 ## Elsewhere
 
